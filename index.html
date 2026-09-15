@@ -475,7 +475,7 @@
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING</div>
+      <div class="online-text" id="onlineText">BOOTING V3</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -605,8 +605,14 @@
   var analyser = null;
   var audioData = null;
   var frequencyData = null;
+
+  var clapHighpass = null;
+  var clapAnalyser = null;
+  var clapHighData = null;
+
   var monitorInterval = null;
   var noiseFloor = 0.018;
+  var highNoiseFloor = 0.006;
   var firstClapAt = 0;
   var lastTransientAt = 0;
   var clapPulseStart = 0;
@@ -777,11 +783,25 @@
       analyser.smoothingTimeConstant = 0.15;
       source.connect(analyser);
 
+      // 拍手専用：人の声の主成分を落として高域の衝撃音を見る
+      clapHighpass = audioContext.createBiquadFilter();
+      clapHighpass.type = "highpass";
+      clapHighpass.frequency.value = 1800;
+      clapHighpass.Q.value = 0.7;
+
+      clapAnalyser = audioContext.createAnalyser();
+      clapAnalyser.fftSize = 1024;
+      clapAnalyser.smoothingTimeConstant = 0.05;
+
+      source.connect(clapHighpass);
+      clapHighpass.connect(clapAnalyser);
+
       audioData = new Uint8Array(analyser.fftSize);
       frequencyData = new Uint8Array(analyser.frequencyBinCount);
+      clapHighData = new Uint8Array(clapAnalyser.fftSize);
 
       if (monitorInterval) clearInterval(monitorInterval);
-      monitorInterval = setInterval(sampleAudio, 35);
+      monitorInterval = setInterval(sampleAudio, 20);
 
       done(true);
     }).catch(function(err) {
@@ -800,6 +820,8 @@
         rms: 0,
         peak: 0,
         crest: 0,
+        highRms: 0,
+        highPeak: 0,
         highRatio: 0
       };
     }
@@ -818,49 +840,34 @@
     }
 
     var rms = Math.sqrt(sum / audioData.length);
-    var highRatio = 0;
 
-    if (frequencyData && audioContext) {
-      analyser.getByteFrequencyData(frequencyData);
+    var highRms = 0;
+    var highPeak = 0;
 
-      var binHz =
-        audioContext.sampleRate / analyser.fftSize;
+    if (clapAnalyser && clapHighData) {
+      clapAnalyser.getByteTimeDomainData(clapHighData);
 
-      var lowSum = 0;
-      var lowCount = 0;
       var highSum = 0;
-      var highCount = 0;
 
-      for (var j = 0; j < frequencyData.length; j++) {
-        var hz = j * binHz;
-        var level = frequencyData[j];
+      for (var j = 0; j < clapHighData.length; j++) {
+        var hv = (clapHighData[j] - 128) / 128;
+        var habs = Math.abs(hv);
 
-        if (hz >= 180 && hz <= 1400) {
-          lowSum += level;
-          lowCount++;
-        }
-
-        if (hz >= 1800 && hz <= 7500) {
-          highSum += level;
-          highCount++;
-        }
+        highSum += hv * hv;
+        if (habs > highPeak) highPeak = habs;
       }
 
-      var lowAvg =
-        lowCount ? lowSum / lowCount : 0;
-
-      var highAvg =
-        highCount ? highSum / highCount : 0;
-
-      highRatio =
-        highAvg / Math.max(lowAvg, 1);
+      highRms =
+        Math.sqrt(highSum / clapHighData.length);
     }
 
     return {
       rms: rms,
       peak: peak,
       crest: peak / Math.max(rms, 0.005),
-      highRatio: highRatio
+      highRms: highRms,
+      highPeak: highPeak,
+      highRatio: highRms / Math.max(rms, 0.006)
     };
   }
 
@@ -888,77 +895,108 @@
   function detectClap(metrics) {
     var rms = metrics.rms;
     var peak = metrics.peak;
-    var crest = metrics.crest;
+    var highRms = metrics.highRms || 0;
+    var highPeak = metrics.highPeak || 0;
     var highRatio = metrics.highRatio || 0;
-
-    var peakThreshold = Math.max(
-      0.16,
-      0.44 - sensitivity * 0.024,
-      noiseFloor * (4.2 - sensitivity * 0.10)
-    );
-
-    var rmsThreshold = Math.max(
-      0.040,
-      noiseFloor * 2.15
-    );
-
-    // 感度が高いほど少しだけ条件を緩める。
-    var crestThreshold =
-      Math.max(2.35, 2.95 - sensitivity * 0.065);
-
-    var highRatioThreshold =
-      Math.max(0.31, 0.48 - sensitivity * 0.015);
-
     var now = Date.now();
 
-    var attack =
-      peak >= peakThreshold &&
-      rms >= rmsThreshold &&
-      crest >= crestThreshold &&
-      highRatio >= highRatioThreshold &&
-      now - lastTransientAt > TRANSIENT_REFRACTORY;
+    // 感度1〜10。高いほど必要レベルを少し下げる。
+    var rawPeakThreshold =
+      Math.max(
+        0.12,
+        0.30 - sensitivity * 0.014,
+        noiseFloor * 3.0
+      );
 
-    // 拍手候補開始
+    var highRmsThreshold =
+      Math.max(
+        0.010,
+        0.024 - sensitivity * 0.0012,
+        highNoiseFloor * (4.6 - sensitivity * 0.12)
+      );
+
+    var highPeakThreshold =
+      Math.max(
+        0.055,
+        0.12 - sensitivity * 0.006,
+        highNoiseFloor * 8.0
+      );
+
+    var ratioThreshold =
+      Math.max(
+        0.16,
+        0.30 - sensitivity * 0.012
+      );
+
+    var attack =
+      peak >= rawPeakThreshold &&
+      highRms >= highRmsThreshold &&
+      highPeak >= highPeakThreshold &&
+      highRatio >= ratioThreshold &&
+      now - lastTransientAt >
+        TRANSIENT_REFRACTORY;
+
     if (!clapPulseStart) {
       if (attack) {
         clapPulseStart = now;
-        clapPulseMaxCrest = crest;
+        clapPulseMaxCrest = highPeak;
         clapPulseMaxHighRatio = highRatio;
-      } else if (
-        rms < noiseFloor * 2.2 ||
-        rms < 0.065
-      ) {
+        return;
+      }
+
+      // 静かな時だけ環境ノイズを学習
+      if (rms < 0.07) {
         noiseFloor =
           noiseFloor * 0.985 + rms * 0.015;
 
         noiseFloor =
-          Math.max(0.008, Math.min(noiseFloor, 0.12));
+          Math.max(
+            0.006,
+            Math.min(noiseFloor, 0.10)
+          );
+      }
+
+      if (highRms < 0.035) {
+        highNoiseFloor =
+          highNoiseFloor * 0.985 +
+          highRms * 0.015;
+
+        highNoiseFloor =
+          Math.max(
+            0.002,
+            Math.min(highNoiseFloor, 0.035)
+          );
       }
 
       return;
     }
 
-    // 候補中の最大値を保存
     clapPulseMaxCrest =
-      Math.max(clapPulseMaxCrest, crest);
+      Math.max(clapPulseMaxCrest, highPeak);
 
     clapPulseMaxHighRatio =
-      Math.max(clapPulseMaxHighRatio, highRatio);
+      Math.max(
+        clapPulseMaxHighRatio,
+        highRatio
+      );
 
     var duration = now - clapPulseStart;
-    var releaseLevel =
-      Math.max(noiseFloor * 1.60, rmsThreshold * 0.62);
 
-    var released = rms <= releaseLevel;
+    var released =
+      highRms <=
+      Math.max(
+        highNoiseFloor * 1.8,
+        highRmsThreshold * 0.48
+      );
 
-    // 「一瞬で立ち上がり、すぐ減衰する音」だけ拍手として確定。
-    // 声は通常ここまで短く減衰しないため誤作動を大幅に減らせる。
+    // 拍手は短い高域パルス。
+    // 声の子音は高域があっても長く続くので棄却する。
     if (released) {
       if (
-        duration >= CLAP_MIN_PULSE_MS &&
-        duration <= CLAP_MAX_PULSE_MS &&
-        clapPulseMaxCrest >= crestThreshold &&
-        clapPulseMaxHighRatio >= highRatioThreshold
+        duration >= 10 &&
+        duration <= 180 &&
+        clapPulseMaxCrest >= highPeakThreshold &&
+        clapPulseMaxHighRatio >= ratioThreshold
       ) {
         var clapAt = clapPulseStart;
 
@@ -972,8 +1010,7 @@
       return;
     }
 
-    // 長く続く音は声・テレビ・食器音などとして棄却
-    if (duration > CLAP_MAX_PULSE_MS) {
+    if (duration > 180) {
       resetClapPulse_();
     }
   }
@@ -1202,7 +1239,7 @@
 
   function sendAudioBlob(blob, mimeType) {
     busy = true;
-    setState("processing", "PROCESSING", "音声を認識しています...");
+    setState("processing", "PROCESSING", "録音完了。GASへ送信しています...");
 
     var reader = new FileReader();
 
@@ -1231,7 +1268,7 @@
           busy = false;
           handleResult(result);
         },
-        65000
+        35000
       );
     };
 
@@ -1346,41 +1383,58 @@
     }
 
     var requestId = makeSecureRequestId_();
-    var form = document.getElementById("gasTransportForm");
 
-    form.action = GAS_URL;
+    var params =
+      new URLSearchParams();
 
-    while (form.firstChild) {
-      form.removeChild(form.firstChild);
-    }
-
-    appendHidden(form, "token", token);
-    appendHidden(form, "requestId", requestId);
-    appendHidden(form, "action", action);
+    params.set("token", token);
+    params.set("requestId", requestId);
+    params.set("action", action);
 
     data = data || {};
 
     Object.keys(data).forEach(function(key) {
-      appendHidden(form, key, data[key]);
+      params.set(
+        key,
+        data[key] == null
+          ? ""
+          : String(data[key])
+      );
     });
 
-    try {
-      form.submit();
+    // クロスオリジンのためレスポンス本文は読まない。
+    // POSTだけ送り、結果はJSONPポーリングで取得する。
+    fetch(GAS_URL, {
+      method: "POST",
+      mode: "no-cors",
+      cache: "no-store",
+      headers: {
+        "Content-Type":
+          "application/x-www-form-urlencoded;charset=UTF-8"
+      },
+      body: params.toString()
+    }).then(function() {
+      if (action === "audio") {
+        setState(
+          "processing",
+          "PROCESSING",
+          "GASで音声を処理しています..."
+        );
+      }
 
-      // POSTのレスポンスをiframeから読まず、
-      // GASが一時保存した結果をJSONPで取りに行く。
       pollRequestResult_(
         requestId,
         callback,
         Number(timeoutMs || 30000)
       );
 
-    } catch (err) {
+    }).catch(function() {
       callback({
         success: false,
-        message: "JARVIS GASへ接続できませんでした。"
+        message:
+          "JARVIS GASへPOST送信できませんでした。"
       });
-    }
+    });
   }
 
 
@@ -1427,8 +1481,17 @@
       callback(result);
     }
 
+    var pollCount = 0;
+
     function poll() {
       if (finished) return;
+
+      pollCount++;
+
+      if (state === "processing") {
+        document.getElementById("stateSub").textContent =
+          "GAS応答待ち... " + pollCount;
+      }
 
       if (Date.now() - startedAt > timeoutMs) {
         finish({
@@ -1547,7 +1610,7 @@
           voiceEnabled ? "ON" : "OFF";
 
         document.getElementById("onlineText").textContent =
-          data.apiReady ? "SYSTEM ONLINE" : "API KEY NEEDED";
+          data.apiReady ? "SYSTEM ONLINE V3" : "API KEY NEEDED";
 
         var summary = data.orderSummary || {};
 
