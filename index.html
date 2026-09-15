@@ -475,7 +475,7 @@
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V5</div>
+      <div class="online-text" id="onlineText">BOOTING V5.2</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -1488,6 +1488,65 @@
   }
 
 
+  function scoreRestaurantTranscript_(text, confidence) {
+    var s = String(text || "").trim();
+    var score = Number(confidence || 0) * 10;
+
+    if (!s) return -9999;
+
+    // 卓番号が明示されている候補を最優先。
+    if (/(?:[0-7０-７一二三四五六七]\s*卓|座\s*[1-3１-３]|テーブル\s*[0-7０-７])/.test(s)) {
+      score += 150;
+    }
+
+    // 店内操作・注文でよく出る語。
+    if (/(入ります|入れます|入れて|追加|注文|オーダー|未提供|未完了|完了|終了|確認)/.test(s)) {
+      score += 55;
+    }
+
+    // 既知の卓番号誤認識。サーバー側で補正可能なので次点。
+    if (/(自宅|委託|お得|三宅|[0-7]\s*(?:宅|択|たく|タク))/.test(s)) {
+      score += 35;
+    }
+
+    return score;
+  }
+
+
+  function chooseBestRestaurantTranscript_(result) {
+    if (!result || !result.length) {
+      return "";
+    }
+
+    var bestText = "";
+    var bestScore = -999999;
+
+    for (var i = 0; i < result.length; i++) {
+      var alt = result[i];
+
+      if (!alt || !alt.transcript) {
+        continue;
+      }
+
+      var text =
+        String(alt.transcript).trim();
+
+      var score =
+        scoreRestaurantTranscript_(
+          text,
+          alt.confidence
+        );
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestText = text;
+      }
+    }
+
+    return bestText;
+  }
+
+
   function startCommandRecognitionCycle_() {
     if (
       !commandModeActive ||
@@ -1526,12 +1585,16 @@
 
           if (
             result &&
-            result.isFinal &&
-            result[0] &&
-            result[0].transcript
+            result.isFinal
           ) {
-            finalText +=
-              String(result[0].transcript);
+            var bestTranscript =
+              chooseBestRestaurantTranscript_(
+                result
+              );
+
+            if (bestTranscript) {
+              finalText += bestTranscript;
+            }
           }
         }
 
@@ -2180,7 +2243,7 @@
           voiceEnabled ? "ON" : "OFF";
 
         document.getElementById("onlineText").textContent =
-          data.apiReady ? "SYSTEM ONLINE V5" : "API KEY NEEDED";
+          data.apiReady ? "SYSTEM ONLINE V5.2" : "API KEY NEEDED";
 
         if (SpeechRecognitionCtor) {
           document.getElementById("clapLabel").textContent =
