@@ -604,10 +604,14 @@
   var audioContext = null;
   var analyser = null;
   var audioData = null;
+  var frequencyData = null;
   var monitorInterval = null;
   var noiseFloor = 0.018;
   var firstClapAt = 0;
   var lastTransientAt = 0;
+  var clapPulseStart = 0;
+  var clapPulseMaxCrest = 0;
+  var clapPulseMaxHighRatio = 0;
 
   var mediaRecorder = null;
   var recordedChunks = [];
@@ -619,8 +623,10 @@
   var pendingRequests = {};
 
   var CLAP_MIN_GAP = 180;
-  var CLAP_MAX_GAP = 750;
-  var TRANSIENT_REFRACTORY = 110;
+  var CLAP_MAX_GAP = 820;
+  var TRANSIENT_REFRACTORY = 120;
+  var CLAP_MIN_PULSE_MS = 20;
+  var CLAP_MAX_PULSE_MS = 165;
   var MAX_RECORD_MS = 8500;
   var NO_SPEECH_TIMEOUT_MS = 3200;
   var END_SILENCE_MS = 950;
@@ -745,7 +751,7 @@
     navigator.mediaDevices.getUserMedia({
       audio: {
         echoCancellation: true,
-        noiseSuppression: true,
+        noiseSuppression: false,
         autoGainControl: false
       },
       video: false
@@ -772,6 +778,7 @@
       source.connect(analyser);
 
       audioData = new Uint8Array(analyser.fftSize);
+      frequencyData = new Uint8Array(analyser.frequencyBinCount);
 
       if (monitorInterval) clearInterval(monitorInterval);
       monitorInterval = setInterval(sampleAudio, 35);
@@ -789,7 +796,12 @@
 
   function readAudioMetrics() {
     if (!analyser || !audioData) {
-      return { rms: 0, peak: 0, crest: 0 };
+      return {
+        rms: 0,
+        peak: 0,
+        crest: 0,
+        highRatio: 0
+      };
     }
 
     analyser.getByteTimeDomainData(audioData);
@@ -806,11 +818,49 @@
     }
 
     var rms = Math.sqrt(sum / audioData.length);
+    var highRatio = 0;
+
+    if (frequencyData && audioContext) {
+      analyser.getByteFrequencyData(frequencyData);
+
+      var binHz =
+        audioContext.sampleRate / analyser.fftSize;
+
+      var lowSum = 0;
+      var lowCount = 0;
+      var highSum = 0;
+      var highCount = 0;
+
+      for (var j = 0; j < frequencyData.length; j++) {
+        var hz = j * binHz;
+        var level = frequencyData[j];
+
+        if (hz >= 180 && hz <= 1400) {
+          lowSum += level;
+          lowCount++;
+        }
+
+        if (hz >= 1800 && hz <= 7500) {
+          highSum += level;
+          highCount++;
+        }
+      }
+
+      var lowAvg =
+        lowCount ? lowSum / lowCount : 0;
+
+      var highAvg =
+        highCount ? highSum / highCount : 0;
+
+      highRatio =
+        highAvg / Math.max(lowAvg, 1);
+    }
 
     return {
       rms: rms,
       peak: peak,
-      crest: peak / Math.max(rms, 0.005)
+      crest: peak / Math.max(rms, 0.005),
+      highRatio: highRatio
     };
   }
 
@@ -839,29 +889,100 @@
     var rms = metrics.rms;
     var peak = metrics.peak;
     var crest = metrics.crest;
+    var highRatio = metrics.highRatio || 0;
 
     var peakThreshold = Math.max(
-      0.18,
-      0.50 - sensitivity * 0.028,
-      noiseFloor * (4.6 - sensitivity * 0.12)
+      0.16,
+      0.44 - sensitivity * 0.024,
+      noiseFloor * (4.2 - sensitivity * 0.10)
     );
 
-    var rmsThreshold = Math.max(0.045, noiseFloor * 2.3);
+    var rmsThreshold = Math.max(
+      0.040,
+      noiseFloor * 2.15
+    );
+
+    // 感度が高いほど少しだけ条件を緩める。
+    var crestThreshold =
+      Math.max(2.35, 2.95 - sensitivity * 0.065);
+
+    var highRatioThreshold =
+      Math.max(0.31, 0.48 - sensitivity * 0.015);
+
     var now = Date.now();
 
-    var transient =
+    var attack =
       peak >= peakThreshold &&
       rms >= rmsThreshold &&
-      crest >= 2.1 &&
+      crest >= crestThreshold &&
+      highRatio >= highRatioThreshold &&
       now - lastTransientAt > TRANSIENT_REFRACTORY;
 
-    if (transient) {
-      lastTransientAt = now;
-      registerClap(now);
-    } else if (rms < noiseFloor * 2.3 || rms < 0.07) {
-      noiseFloor = noiseFloor * 0.985 + rms * 0.015;
-      noiseFloor = Math.max(0.008, Math.min(noiseFloor, 0.12));
+    // 拍手候補開始
+    if (!clapPulseStart) {
+      if (attack) {
+        clapPulseStart = now;
+        clapPulseMaxCrest = crest;
+        clapPulseMaxHighRatio = highRatio;
+      } else if (
+        rms < noiseFloor * 2.2 ||
+        rms < 0.065
+      ) {
+        noiseFloor =
+          noiseFloor * 0.985 + rms * 0.015;
+
+        noiseFloor =
+          Math.max(0.008, Math.min(noiseFloor, 0.12));
+      }
+
+      return;
     }
+
+    // 候補中の最大値を保存
+    clapPulseMaxCrest =
+      Math.max(clapPulseMaxCrest, crest);
+
+    clapPulseMaxHighRatio =
+      Math.max(clapPulseMaxHighRatio, highRatio);
+
+    var duration = now - clapPulseStart;
+    var releaseLevel =
+      Math.max(noiseFloor * 1.60, rmsThreshold * 0.62);
+
+    var released = rms <= releaseLevel;
+
+    // 「一瞬で立ち上がり、すぐ減衰する音」だけ拍手として確定。
+    // 声は通常ここまで短く減衰しないため誤作動を大幅に減らせる。
+    if (released) {
+      if (
+        duration >= CLAP_MIN_PULSE_MS &&
+        duration <= CLAP_MAX_PULSE_MS &&
+        clapPulseMaxCrest >= crestThreshold &&
+        clapPulseMaxHighRatio >= highRatioThreshold
+      ) {
+        var clapAt = clapPulseStart;
+
+        lastTransientAt = now;
+        resetClapPulse_();
+        registerClap(clapAt);
+        return;
+      }
+
+      resetClapPulse_();
+      return;
+    }
+
+    // 長く続く音は声・テレビ・食器音などとして棄却
+    if (duration > CLAP_MAX_PULSE_MS) {
+      resetClapPulse_();
+    }
+  }
+
+
+  function resetClapPulse_() {
+    clapPulseStart = 0;
+    clapPulseMaxCrest = 0;
+    clapPulseMaxHighRatio = 0;
   }
 
 
@@ -1110,7 +1231,7 @@
           busy = false;
           handleResult(result);
         },
-        45000
+        65000
       );
     };
 
@@ -1208,32 +1329,8 @@
 
 
   function setupTransportListener() {
-    window.addEventListener("message", function(event) {
-      var frame = document.getElementById("gasTransportFrame");
-
-      if (!frame || event.source !== frame.contentWindow) {
-        return;
-      }
-
-      var packet = event.data || {};
-
-      if (packet.type !== "SERINA_JARVIS_RESPONSE") {
-        return;
-      }
-
-      var requestId = String(packet.requestId || "");
-      var pending = pendingRequests[requestId];
-
-      if (!pending) return;
-
-      clearTimeout(pending.timer);
-      delete pendingRequests[requestId];
-
-      pending.callback(packet.result || {
-        success: false,
-        message: "GASから空の応答が返りました。"
-      });
-    });
+    // v2ではiframeからpostMessageを受けない。
+    // POST結果はGASの一時キャッシュへ保存し、JSONPで取得する。
   }
 
 
@@ -1248,11 +1345,9 @@
       return;
     }
 
-    var requestId =
-      Date.now().toString(36) +
-      Math.random().toString(36).slice(2, 9);
-
+    var requestId = makeSecureRequestId_();
     var form = document.getElementById("gasTransportForm");
+
     form.action = GAS_URL;
 
     while (form.firstChild) {
@@ -1269,33 +1364,146 @@
       appendHidden(form, key, data[key]);
     });
 
-    var timer = setTimeout(function() {
-      if (!pendingRequests[requestId]) return;
-
-      delete pendingRequests[requestId];
-
-      callback({
-        success: false,
-        message: "JARVIS GASとの通信がタイムアウトしました。"
-      });
-    }, Number(timeoutMs || 30000));
-
-    pendingRequests[requestId] = {
-      callback: callback,
-      timer: timer
-    };
-
     try {
       form.submit();
-    } catch (err) {
-      clearTimeout(timer);
-      delete pendingRequests[requestId];
 
+      // POSTのレスポンスをiframeから読まず、
+      // GASが一時保存した結果をJSONPで取りに行く。
+      pollRequestResult_(
+        requestId,
+        callback,
+        Number(timeoutMs || 30000)
+      );
+
+    } catch (err) {
       callback({
         success: false,
         message: "JARVIS GASへ接続できませんでした。"
       });
     }
+  }
+
+
+  function makeSecureRequestId_() {
+    var bytes = new Uint8Array(16);
+
+    if (
+      window.crypto &&
+      window.crypto.getRandomValues
+    ) {
+      window.crypto.getRandomValues(bytes);
+
+      var hex = "";
+
+      for (var i = 0; i < bytes.length; i++) {
+        hex +=
+          ("0" + bytes[i].toString(16)).slice(-2);
+      }
+
+      return "j" + hex;
+    }
+
+    // 古いブラウザ用フォールバック
+    return (
+      "j" +
+      Date.now().toString(36) +
+      Math.random().toString(36).slice(2, 14) +
+      Math.random().toString(36).slice(2, 14)
+    ).replace(/[^A-Za-z0-9_-]/g, "");
+  }
+
+
+  function pollRequestResult_(
+    requestId,
+    callback,
+    timeoutMs
+  ) {
+    var startedAt = Date.now();
+    var finished = false;
+
+    function finish(result) {
+      if (finished) return;
+      finished = true;
+      callback(result);
+    }
+
+    function poll() {
+      if (finished) return;
+
+      if (Date.now() - startedAt > timeoutMs) {
+        finish({
+          success: false,
+          message:
+            "JARVIS GASとの通信がタイムアウトしました。"
+        });
+        return;
+      }
+
+      var callbackName =
+        "__jarvisPoll_" +
+        requestId.replace(/[^A-Za-z0-9_$]/g, "");
+
+      var script =
+        document.createElement("script");
+
+      var cleaned = false;
+
+      function cleanup() {
+        if (cleaned) return;
+        cleaned = true;
+
+        try {
+          if (script.parentNode) {
+            script.parentNode.removeChild(script);
+          }
+        } catch (ignore) {}
+
+        try {
+          delete window[callbackName];
+        } catch (ignore2) {
+          window[callbackName] = undefined;
+        }
+      }
+
+      window[callbackName] = function(packet) {
+        packet = packet || {};
+        cleanup();
+
+        if (packet.ready === true) {
+          finish(
+            packet.result || {
+              success: false,
+              message:
+                "GASから空の応答が返りました。"
+            }
+          );
+          return;
+        }
+
+        setTimeout(poll, 550);
+      };
+
+      script.onerror = function() {
+        cleanup();
+        setTimeout(poll, 850);
+      };
+
+      script.async = true;
+      script.src =
+        GAS_URL +
+        "?api=poll" +
+        "&requestId=" +
+        encodeURIComponent(requestId) +
+        "&callback=" +
+        encodeURIComponent(callbackName) +
+        "&_=" +
+        Date.now();
+
+      document.head.appendChild(script);
+    }
+
+    // POST処理が開始するまで少し待つ
+    setTimeout(poll, 450);
   }
 
 
