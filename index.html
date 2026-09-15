@@ -475,7 +475,7 @@
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V5.2</div>
+      <div class="online-text" id="onlineText">BOOTING V5.3</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -1505,11 +1505,39 @@
     }
 
     // 既知の卓番号誤認識。サーバー側で補正可能なので次点。
-    if (/(自宅|委託|お得|三宅|[0-7]\s*(?:宅|択|たく|タク))/.test(s)) {
+    if (/(食卓|自宅|委託|お得|三宅|[0-7]\s*(?:宅|択|たく|タク))/.test(s)) {
       score += 35;
     }
 
     return score;
+  }
+
+
+  function normalizeRestaurantVoiceTranscriptClient_(text) {
+    var s = String(text || "").trim();
+
+    if (!s) return "";
+
+    var orderContext =
+      /(入ります|入れます|入れて|追加|注文|オーダー|未提供|未完了|完了|終了|確認)/.test(s);
+
+    if (!orderContext) {
+      return s;
+    }
+
+    // 実機で確認された卓番号の誤認識を、
+    // 注文・店内操作の文脈だけ補正する。
+    s = s.replace(
+      /(?:食卓|自宅)(?=\s|$|[にのではをがへ、。,.!！?？])/g,
+      "1卓"
+    );
+
+    s = s.replace(
+      /(?:委託|お得)(?=\s|$|[にのではをがへ、。,.!！?？])/g,
+      "6卓"
+    );
+
+    return s;
   }
 
 
@@ -1599,7 +1627,9 @@
         }
 
         finalText =
-          String(finalText || "").trim();
+          normalizeRestaurantVoiceTranscriptClient_(
+            String(finalText || "").trim()
+          );
 
         if (!finalText) return;
 
@@ -1956,7 +1986,7 @@
         busy = false;
         handleResult(result);
       },
-      22000
+      30000
     );
   }
 
@@ -2243,7 +2273,7 @@
           voiceEnabled ? "ON" : "OFF";
 
         document.getElementById("onlineText").textContent =
-          data.apiReady ? "SYSTEM ONLINE V5.2" : "API KEY NEEDED";
+          data.apiReady ? "SYSTEM ONLINE V5.3" : "API KEY NEEDED";
 
         if (SpeechRecognitionCtor) {
           document.getElementById("clapLabel").textContent =
