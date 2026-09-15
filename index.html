@@ -475,7 +475,7 @@
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V3</div>
+      <div class="online-text" id="onlineText">BOOTING V4</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -621,6 +621,21 @@
 
   var mediaRecorder = null;
   var recordedChunks = [];
+
+  var SpeechRecognitionCtor =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition ||
+    null;
+
+  var recognition = null;
+  var recognitionRunning = false;
+  var recognitionGotFinal = false;
+  var recognitionFallbackStarted = false;
+  var recognitionHardTimer = null;
+
+  var calibratingUntil = 0;
+  var quietSince = 0;
+  var speechLikeSince = 0;
   var recordingStartedAt = 0;
   var speechDetected = false;
   var silenceStartedAt = 0;
@@ -628,14 +643,15 @@
 
   var pendingRequests = {};
 
-  var CLAP_MIN_GAP = 180;
-  var CLAP_MAX_GAP = 820;
-  var TRANSIENT_REFRACTORY = 120;
-  var CLAP_MIN_PULSE_MS = 20;
-  var CLAP_MAX_PULSE_MS = 165;
-  var MAX_RECORD_MS = 8500;
-  var NO_SPEECH_TIMEOUT_MS = 3200;
-  var END_SILENCE_MS = 950;
+  var CLAP_MIN_GAP = 220;
+  var CLAP_MAX_GAP = 700;
+  var TRANSIENT_REFRACTORY = 150;
+  var CLAP_MIN_PULSE_MS = 8;
+  var CLAP_MAX_PULSE_MS = 115;
+  var CLAP_REQUIRED_QUIET_MS = 70;
+  var MAX_RECORD_MS = 6000;
+  var NO_SPEECH_TIMEOUT_MS = 2400;
+  var END_SILENCE_MS = 700;
 
 
   window.addEventListener("load", function() {
@@ -735,15 +751,28 @@
       micReady = true;
       document.getElementById("startOverlay").style.display = "none";
 
+      calibratingUntil = Date.now() + 1100;
       setState(
-        "standby",
-        "STANDBY",
-        clapEnabled
-          ? "拍手を2回すると音声入力を開始します"
-          : "マイクボタンから音声入力できます"
+        "calibrating",
+        "CALIBRATING",
+        "約1秒、静かにして環境音を測定します..."
       );
 
-      loadBootstrap();
+      setTimeout(function() {
+        firstClapAt = 0;
+        resetClapPulse_();
+        quietSince = Date.now();
+
+        setState(
+          "standby",
+          "STANDBY",
+          clapEnabled
+            ? "拍手を2回すると音声入力を開始します"
+            : "マイクボタンから音声入力できます"
+        );
+
+        loadBootstrap();
+      }, 1150);
     });
   };
 
@@ -877,6 +906,11 @@
 
     var metrics = readAudioMetrics();
 
+    if (state === "calibrating") {
+      calibrateNoiseFloor_(metrics);
+      return;
+    }
+
     if (state === "standby" && clapEnabled) {
       detectClap(metrics);
       return;
@@ -892,43 +926,114 @@
   }
 
 
+  function calibrateNoiseFloor_(metrics) {
+    var rms = Number(metrics.rms || 0);
+    var highRms = Number(metrics.highRms || 0);
+
+    noiseFloor =
+      noiseFloor * 0.90 +
+      rms * 0.10;
+
+    highNoiseFloor =
+      highNoiseFloor * 0.90 +
+      highRms * 0.10;
+
+    noiseFloor =
+      Math.max(
+        0.005,
+        Math.min(noiseFloor, 0.10)
+      );
+
+    highNoiseFloor =
+      Math.max(
+        0.0015,
+        Math.min(highNoiseFloor, 0.035)
+      );
+  }
+
+
   function detectClap(metrics) {
-    var rms = metrics.rms;
-    var peak = metrics.peak;
-    var highRms = metrics.highRms || 0;
-    var highPeak = metrics.highPeak || 0;
-    var highRatio = metrics.highRatio || 0;
+    var rms = Number(metrics.rms || 0);
+    var peak = Number(metrics.peak || 0);
+    var highRms = Number(metrics.highRms || 0);
+    var highPeak = Number(metrics.highPeak || 0);
+    var highRatio = Number(metrics.highRatio || 0);
     var now = Date.now();
 
-    // 感度1〜10。高いほど必要レベルを少し下げる。
     var rawPeakThreshold =
       Math.max(
-        0.12,
-        0.30 - sensitivity * 0.014,
-        noiseFloor * 3.0
+        0.15,
+        0.36 - sensitivity * 0.016,
+        noiseFloor * 3.6
       );
 
     var highRmsThreshold =
       Math.max(
-        0.010,
-        0.024 - sensitivity * 0.0012,
-        highNoiseFloor * (4.6 - sensitivity * 0.12)
+        0.014,
+        0.032 - sensitivity * 0.0015,
+        highNoiseFloor * 5.2
       );
 
     var highPeakThreshold =
       Math.max(
-        0.055,
-        0.12 - sensitivity * 0.006,
-        highNoiseFloor * 8.0
+        0.075,
+        0.16 - sensitivity * 0.007,
+        highNoiseFloor * 10.0
       );
 
     var ratioThreshold =
       Math.max(
-        0.16,
-        0.30 - sensitivity * 0.012
+        0.22,
+        0.38 - sensitivity * 0.014
       );
 
+    var quiet =
+      rms <
+        Math.max(
+          0.050,
+          noiseFloor * 1.9
+        ) &&
+      highRms <
+        Math.max(
+          0.020,
+          highNoiseFloor * 2.3
+        );
+
+    if (quiet) {
+      if (!quietSince) {
+        quietSince = now;
+      }
+
+      noiseFloor =
+        noiseFloor * 0.992 +
+        rms * 0.008;
+
+      highNoiseFloor =
+        highNoiseFloor * 0.992 +
+        highRms * 0.008;
+    } else {
+      if (
+        rms > Math.max(0.045, noiseFloor * 2.0)
+      ) {
+        if (!speechLikeSince) {
+          speechLikeSince = now;
+        }
+      } else {
+        speechLikeSince = 0;
+      }
+    }
+
+    var hadQuietBefore =
+      quietSince &&
+      now - quietSince >= CLAP_REQUIRED_QUIET_MS;
+
+    var voiceActiveLong =
+      speechLikeSince &&
+      now - speechLikeSince >= 120;
+
     var attack =
+      hadQuietBefore &&
+      !voiceActiveLong &&
       peak >= rawPeakThreshold &&
       highRms >= highRmsThreshold &&
       highPeak >= highPeakThreshold &&
@@ -941,38 +1046,17 @@
         clapPulseStart = now;
         clapPulseMaxCrest = highPeak;
         clapPulseMaxHighRatio = highRatio;
-        return;
-      }
-
-      // 静かな時だけ環境ノイズを学習
-      if (rms < 0.07) {
-        noiseFloor =
-          noiseFloor * 0.985 + rms * 0.015;
-
-        noiseFloor =
-          Math.max(
-            0.006,
-            Math.min(noiseFloor, 0.10)
-          );
-      }
-
-      if (highRms < 0.035) {
-        highNoiseFloor =
-          highNoiseFloor * 0.985 +
-          highRms * 0.015;
-
-        highNoiseFloor =
-          Math.max(
-            0.002,
-            Math.min(highNoiseFloor, 0.035)
-          );
+        quietSince = 0;
       }
 
       return;
     }
 
     clapPulseMaxCrest =
-      Math.max(clapPulseMaxCrest, highPeak);
+      Math.max(
+        clapPulseMaxCrest,
+        highPeak
+      );
 
     clapPulseMaxHighRatio =
       Math.max(
@@ -980,38 +1064,51 @@
         highRatio
       );
 
-    var duration = now - clapPulseStart;
+    var duration =
+      now - clapPulseStart;
 
     var released =
       highRms <=
-      Math.max(
-        highNoiseFloor * 1.8,
-        highRmsThreshold * 0.48
-      );
+        Math.max(
+          highNoiseFloor * 2.1,
+          highRmsThreshold * 0.42
+        ) &&
+      rms <=
+        Math.max(
+          noiseFloor * 2.2,
+          0.060
+        );
 
-    // 拍手は短い高域パルス。
-    // 声の子音は高域があっても長く続くので棄却する。
     if (released) {
       if (
-        duration >= 10 &&
-        duration <= 180 &&
-        clapPulseMaxCrest >= highPeakThreshold &&
-        clapPulseMaxHighRatio >= ratioThreshold
+        duration >= CLAP_MIN_PULSE_MS &&
+        duration <= CLAP_MAX_PULSE_MS &&
+        clapPulseMaxCrest >=
+          highPeakThreshold &&
+        clapPulseMaxHighRatio >=
+          ratioThreshold
       ) {
-        var clapAt = clapPulseStart;
+        var clapAt =
+          clapPulseStart;
 
         lastTransientAt = now;
         resetClapPulse_();
+        quietSince = now;
+        speechLikeSince = 0;
+
         registerClap(clapAt);
         return;
       }
 
       resetClapPulse_();
+      quietSince = now;
       return;
     }
 
-    if (duration > 180) {
+    if (duration > CLAP_MAX_PULSE_MS) {
       resetClapPulse_();
+      speechLikeSince =
+        speechLikeSince || now;
     }
   }
 
@@ -1063,7 +1160,9 @@
     playActivateTone();
 
     speakShort("はい", function() {
-      setTimeout(beginVoiceRecording, 140);
+      setTimeout(function() {
+        beginFastVoiceInput_();
+      }, 260);
     });
   }
 
@@ -1083,8 +1182,204 @@
     }
 
     setState("listening", "LISTENING", "ご用件をどうぞ");
-    beginVoiceRecording();
+    beginFastVoiceInput_();
   };
+
+
+  function beginFastVoiceInput_() {
+    if (!SpeechRecognitionCtor) {
+      beginVoiceRecording();
+      return;
+    }
+
+    if (recognitionRunning) {
+      return;
+    }
+
+    recognitionGotFinal = false;
+    recognitionFallbackStarted = false;
+
+    try {
+      recognition =
+        new SpeechRecognitionCtor();
+
+      recognition.lang = "ja-JP";
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 3;
+
+      recognition.onstart = function() {
+        recognitionRunning = true;
+
+        setState(
+          "listening",
+          "LISTENING",
+          "音声を聞いています..."
+        );
+      };
+
+      recognition.onresult = function(event) {
+        var interim = "";
+        var finalText = "";
+
+        for (
+          var i = event.resultIndex;
+          i < event.results.length;
+          i++
+        ) {
+          var result =
+            event.results[i];
+
+          var transcript =
+            result &&
+            result[0] &&
+            result[0].transcript
+              ? String(result[0].transcript)
+              : "";
+
+          if (result.isFinal) {
+            finalText += transcript;
+          } else {
+            interim += transcript;
+          }
+        }
+
+        if (interim) {
+          document.getElementById(
+            "stateSub"
+          ).textContent =
+            "認識中：" + interim;
+        }
+
+        finalText =
+          String(finalText || "").trim();
+
+        if (finalText) {
+          recognitionGotFinal = true;
+
+          try {
+            recognition.stop();
+          } catch (ignore) {}
+
+          recognitionRunning = false;
+
+          setState(
+            "processing",
+            "PROCESSING",
+            "認識：" + finalText
+          );
+
+          showMessage(
+            "認識：" + finalText
+          );
+
+          sendCommand(
+            finalText,
+            "VOICE_BROWSER"
+          );
+        }
+      };
+
+      recognition.onerror = function(event) {
+        recognitionRunning = false;
+
+        if (
+          recognitionGotFinal ||
+          recognitionFallbackStarted
+        ) {
+          return;
+        }
+
+        var errorName =
+          String(
+            event && event.error
+              ? event.error
+              : ""
+          );
+
+        if (
+          errorName === "not-allowed" ||
+          errorName === "service-not-allowed"
+        ) {
+          setState(
+            "error",
+            "MIC ERROR",
+            "音声認識のマイク権限を確認してください。"
+          );
+
+          setTimeout(
+            returnToStandby,
+            1700
+          );
+
+          return;
+        }
+
+        recognitionFallbackStarted =
+          true;
+
+        setState(
+          "listening",
+          "FALLBACK",
+          "録音方式へ切り替えます..."
+        );
+
+        setTimeout(
+          beginVoiceRecording,
+          180
+        );
+      };
+
+      recognition.onend = function() {
+        recognitionRunning = false;
+
+        if (
+          recognitionGotFinal ||
+          recognitionFallbackStarted
+        ) {
+          return;
+        }
+
+        recognitionFallbackStarted =
+          true;
+
+        setState(
+          "listening",
+          "FALLBACK",
+          "聞き取れなかったため録音方式で再試行します..."
+        );
+
+        setTimeout(
+          beginVoiceRecording,
+          180
+        );
+      };
+
+      recognition.start();
+
+      if (recognitionHardTimer) {
+        clearTimeout(
+          recognitionHardTimer
+        );
+      }
+
+      recognitionHardTimer =
+        setTimeout(function() {
+          if (
+            recognitionRunning &&
+            !recognitionGotFinal
+          ) {
+            try {
+              recognition.stop();
+            } catch (ignore) {}
+          }
+        }, 6200);
+
+    } catch (err) {
+      recognitionRunning = false;
+      beginVoiceRecording();
+    }
+  }
 
 
   function chooseRecordingMimeType() {
@@ -1323,7 +1618,7 @@
         busy = false;
         handleResult(result);
       },
-      30000
+      22000
     );
   }
 
@@ -1610,7 +1905,14 @@
           voiceEnabled ? "ON" : "OFF";
 
         document.getElementById("onlineText").textContent =
-          data.apiReady ? "SYSTEM ONLINE V3" : "API KEY NEEDED";
+          data.apiReady ? "SYSTEM ONLINE V4" : "API KEY NEEDED";
+
+        if (SpeechRecognitionCtor) {
+          document.getElementById("clapLabel").textContent =
+            clapEnabled
+              ? "CLAP × 2 / FAST VOICE READY"
+              : "FAST VOICE READY";
+        }
 
         var summary = data.orderSummary || {};
 
@@ -1776,6 +2078,18 @@
       }, 80);
     } catch (ignore2) {}
   }
+
+
+  setInterval(function() {
+    if (
+      state === "processing" &&
+      !busy
+    ) {
+      returnToStandby(
+        "処理待機を解除しました"
+      );
+    }
+  }, 5000);
 
 
   window.toggleSettings = function() {
