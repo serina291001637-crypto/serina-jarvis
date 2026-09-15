@@ -475,7 +475,7 @@
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V4</div>
+      <div class="online-text" id="onlineText">BOOTING V5</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -508,7 +508,7 @@
   <div class="footer">
     <div class="clap-status">
       <span class="clap-dot"></span>
-      <span id="clapLabel">CLAP × 2 TO ACTIVATE</span>
+      <span id="clapLabel">WAKE WORD: JARVIS</span>
     </div>
 
     <div class="input-row">
@@ -526,7 +526,7 @@
     <div class="start-title">JARVIS</div>
     <div class="start-text">
       起動するとマイクを待機状態にします。<br>
-      拍手2回で「はい」→ 音声命令を開始します。<br><br>
+      「ジャービス」と呼ぶと「はい」→ 音声命令を開始します。<br><br>
       初回だけGASで発行したペアリングトークンを保存してください。
     </div>
 
@@ -632,6 +632,22 @@
   var recognitionGotFinal = false;
   var recognitionFallbackStarted = false;
   var recognitionHardTimer = null;
+
+  var wakeRecognition = null;
+  var wakeRecognitionRunning = false;
+  var wakeRestartTimer = null;
+
+  var commandDeadlineTimer = null;
+  var commandSpeechDetected = false;
+  var commandSpeechActiveSince = 0;
+  var commandSpeechAccumulatedMs = 0;
+  var commandModeActive = false;
+
+  var WAKE_WORDS = [
+    "ジャービス",
+    "ジャーヴィス",
+    "jarvis"
+  ];
 
   var calibratingUntil = 0;
   var quietSince = 0;
@@ -766,12 +782,16 @@
         setState(
           "standby",
           "STANDBY",
-          clapEnabled
-            ? "拍手を2回すると音声入力を開始します"
+          SpeechRecognitionCtor
+            ? "「ジャービス」と呼んでください"
             : "マイクボタンから音声入力できます"
         );
 
         loadBootstrap();
+
+        if (SpeechRecognitionCtor) {
+          setTimeout(startWakeWordRecognition_, 450);
+        }
       }, 1150);
     });
   };
@@ -911,9 +931,14 @@
       return;
     }
 
-    if (state === "standby" && clapEnabled) {
-      detectClap(metrics);
+    // v5: STANDBY中は拍手を使わずウェイクワードで起動。
+    if (state === "standby") {
       return;
+    }
+
+    // 実際に人が声を出したかをAudioContext側でも確認。
+    if (state === "listening" && commandModeActive) {
+      monitorCommandSpeech_(metrics);
     }
 
     if (
@@ -1147,23 +1172,261 @@
 
     setTimeout(function() {
       if (state === "standby") {
-        document.getElementById("clapLabel").textContent = "CLAP × 2 TO ACTIVATE";
+        document.getElementById("clapLabel").textContent = "WAKE WORD: JARVIS";
       }
     }, 650);
   }
 
 
-  function activateByClap() {
+  function normalizeWakeText_(text) {
+    return String(text || "")
+      .toLowerCase()
+      .replace(/[ 　、。,.!?！？]/g, "");
+  }
+
+
+  function containsWakeWord_(text) {
+    var normalized = normalizeWakeText_(text);
+
+    for (var i = 0; i < WAKE_WORDS.length; i++) {
+      var word = normalizeWakeText_(WAKE_WORDS[i]);
+
+      if (normalized.indexOf(word) >= 0) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+
+  function stopWakeWordRecognition_() {
+    if (wakeRestartTimer) {
+      clearTimeout(wakeRestartTimer);
+      wakeRestartTimer = null;
+    }
+
+    if (wakeRecognition) {
+      try {
+        wakeRecognition.onend = null;
+        wakeRecognition.onerror = null;
+        wakeRecognition.stop();
+      } catch (ignore) {}
+    }
+
+    wakeRecognition = null;
+    wakeRecognitionRunning = false;
+  }
+
+
+  function startWakeWordRecognition_() {
+    if (
+      !SpeechRecognitionCtor ||
+      !micReady ||
+      state !== "standby" ||
+      busy ||
+      wakeRecognitionRunning ||
+      commandModeActive
+    ) {
+      return;
+    }
+
+    try {
+      wakeRecognition = new SpeechRecognitionCtor();
+      wakeRecognition.lang = "ja-JP";
+      wakeRecognition.continuous = true;
+      wakeRecognition.interimResults = true;
+      wakeRecognition.maxAlternatives = 1;
+
+      wakeRecognition.onstart = function() {
+        wakeRecognitionRunning = true;
+
+        if (state === "standby") {
+          document.getElementById("stateSub").textContent =
+            "「ジャービス」と呼んでください";
+
+          document.getElementById("clapLabel").textContent =
+            "WAKE WORD: JARVIS";
+        }
+      };
+
+      wakeRecognition.onresult = function(event) {
+        if (state !== "standby") return;
+
+        var heard = "";
+
+        for (
+          var i = event.resultIndex;
+          i < event.results.length;
+          i++
+        ) {
+          var item = event.results[i];
+
+          if (item && item[0] && item[0].transcript) {
+            heard += String(item[0].transcript);
+          }
+        }
+
+        if (containsWakeWord_(heard)) {
+          stopWakeWordRecognition_();
+          activateByWakeWord_();
+        }
+      };
+
+      wakeRecognition.onerror = function(event) {
+        wakeRecognitionRunning = false;
+
+        var errorName =
+          String(event && event.error ? event.error : "");
+
+        if (
+          errorName === "not-allowed" ||
+          errorName === "service-not-allowed"
+        ) {
+          document.getElementById("stateSub").textContent =
+            "ウェイクワード利用不可。マイクボタンを使用してください。";
+        }
+      };
+
+      wakeRecognition.onend = function() {
+        wakeRecognitionRunning = false;
+
+        if (
+          state === "standby" &&
+          !busy &&
+          !commandModeActive
+        ) {
+          wakeRestartTimer =
+            setTimeout(startWakeWordRecognition_, 600);
+        }
+      };
+
+      wakeRecognition.start();
+
+    } catch (err) {
+      wakeRecognitionRunning = false;
+
+      if (state === "standby") {
+        wakeRestartTimer =
+          setTimeout(startWakeWordRecognition_, 1000);
+      }
+    }
+  }
+
+
+  function activateByWakeWord_() {
     if (busy || state !== "standby") return;
 
-    setState("listening", "ACTIVATED", "はい。ご用件をどうぞ。");
+    stopWakeWordRecognition_();
+
+    setState(
+      "listening",
+      "ACTIVATED",
+      "はい。ご用件をどうぞ。"
+    );
+
     playActivateTone();
 
     speakShort("はい", function() {
-      setTimeout(function() {
-        beginFastVoiceInput_();
-      }, 260);
+      setTimeout(beginFastVoiceInput_, 320);
     });
+  }
+
+
+  function monitorCommandSpeech_(metrics) {
+    var rms = Number(metrics.rms || 0);
+    var threshold =
+      Math.max(0.028, noiseFloor * 1.75);
+    var now = Date.now();
+
+    if (rms >= threshold) {
+      commandSpeechDetected = true;
+
+      if (!commandSpeechActiveSince) {
+        commandSpeechActiveSince = now;
+      }
+    } else if (commandSpeechActiveSince) {
+      commandSpeechAccumulatedMs +=
+        now - commandSpeechActiveSince;
+
+      commandSpeechActiveSince = 0;
+    }
+  }
+
+
+  function finishCommandSpeechAccumulation_() {
+    if (commandSpeechActiveSince) {
+      commandSpeechAccumulatedMs +=
+        Date.now() - commandSpeechActiveSince;
+
+      commandSpeechActiveSince = 0;
+    }
+  }
+
+
+  function isMeaningfulRecognizedText_(text) {
+    var s = String(text || "")
+      .trim()
+      .replace(/[ 　]/g, "");
+
+    if (!s) return false;
+
+    if (
+      /^(あー+|えー+|えっと|うーん|んー+|もしもし|はい|え)$/i.test(s)
+    ) {
+      return false;
+    }
+
+    var plain =
+      s.replace(/[、。,.!?！？ー\-]/g, "");
+
+    return plain.length >= 2;
+  }
+
+
+  function cancelCommandForSilence_() {
+    if (commandDeadlineTimer) {
+      clearTimeout(commandDeadlineTimer);
+      commandDeadlineTimer = null;
+    }
+
+    commandModeActive = false;
+    recognitionGotFinal = true;
+
+    if (recognition) {
+      try {
+        recognition.stop();
+      } catch (ignore) {}
+    }
+
+    recognitionRunning = false;
+    showMessage("");
+
+    setState(
+      "standby",
+      "STANDBY",
+      "また、ご用件があればお呼びください。"
+    );
+
+    speak(
+      "また、ご用件があればお呼びください。",
+      function() {
+        setTimeout(function() {
+          if (state === "standby") {
+            document.getElementById("stateSub").textContent =
+              "「ジャービス」と呼んでください";
+
+            startWakeWordRecognition_();
+          }
+        }, 350);
+      }
+    );
+  }
+
+
+  function activateByClap() {
+    // v5では拍手起動は使用しない。
+    activateByWakeWord_();
   }
 
 
@@ -1176,36 +1439,69 @@
     }
 
     if (!micReady) {
-      setState("error", "MIC ERROR", "マイクが起動していません。");
+      setState(
+        "error",
+        "MIC ERROR",
+        "マイクが起動していません。"
+      );
       setTimeout(returnToStandby, 1600);
       return;
     }
 
-    setState("listening", "LISTENING", "ご用件をどうぞ");
+    stopWakeWordRecognition_();
+
+    setState(
+      "listening",
+      "LISTENING",
+      "ご用件をどうぞ"
+    );
+
     beginFastVoiceInput_();
   };
 
 
   function beginFastVoiceInput_() {
-    if (!SpeechRecognitionCtor) {
-      beginVoiceRecording();
-      return;
+    stopWakeWordRecognition_();
+
+    commandModeActive = true;
+    commandSpeechDetected = false;
+    commandSpeechActiveSince = 0;
+    commandSpeechAccumulatedMs = 0;
+
+    if (commandDeadlineTimer) {
+      clearTimeout(commandDeadlineTimer);
     }
 
-    if (recognitionRunning) {
+    // 10秒以内に意味のある発話がなければAIへ送らず終了。
+    commandDeadlineTimer =
+      setTimeout(cancelCommandForSilence_, 10000);
+
+    if (!SpeechRecognitionCtor) {
+      beginVoiceRecording();
       return;
     }
 
     recognitionGotFinal = false;
     recognitionFallbackStarted = false;
 
-    try {
-      recognition =
-        new SpeechRecognitionCtor();
+    startCommandRecognitionCycle_();
+  }
 
+
+  function startCommandRecognitionCycle_() {
+    if (
+      !commandModeActive ||
+      recognitionRunning ||
+      !SpeechRecognitionCtor
+    ) {
+      return;
+    }
+
+    try {
+      recognition = new SpeechRecognitionCtor();
       recognition.lang = "ja-JP";
       recognition.continuous = false;
-      recognition.interimResults = true;
+      recognition.interimResults = false;
       recognition.maxAlternatives = 3;
 
       recognition.onstart = function() {
@@ -1214,12 +1510,11 @@
         setState(
           "listening",
           "LISTENING",
-          "音声を聞いています..."
+          "ご用件をどうぞ"
         );
       };
 
       recognition.onresult = function(event) {
-        var interim = "";
         var finalText = "";
 
         for (
@@ -1227,57 +1522,64 @@
           i < event.results.length;
           i++
         ) {
-          var result =
-            event.results[i];
+          var result = event.results[i];
 
-          var transcript =
+          if (
             result &&
+            result.isFinal &&
             result[0] &&
             result[0].transcript
-              ? String(result[0].transcript)
-              : "";
-
-          if (result.isFinal) {
-            finalText += transcript;
-          } else {
-            interim += transcript;
+          ) {
+            finalText +=
+              String(result[0].transcript);
           }
-        }
-
-        if (interim) {
-          document.getElementById(
-            "stateSub"
-          ).textContent =
-            "認識中：" + interim;
         }
 
         finalText =
           String(finalText || "").trim();
 
-        if (finalText) {
-          recognitionGotFinal = true;
+        if (!finalText) return;
 
-          try {
-            recognition.stop();
-          } catch (ignore) {}
+        finishCommandSpeechAccumulation_();
 
-          recognitionRunning = false;
+        var enoughRealSpeech =
+          commandSpeechDetected &&
+          commandSpeechAccumulatedMs >= 180;
 
-          setState(
-            "processing",
-            "PROCESSING",
-            "認識：" + finalText
-          );
+        var meaningful =
+          isMeaningfulRecognizedText_(finalText);
 
-          showMessage(
-            "認識：" + finalText
-          );
-
-          sendCommand(
-            finalText,
-            "VOICE_BROWSER"
-          );
+        // 無音時の誤認識、短い曖昧語は絶対にAIへ送らない。
+        if (!enoughRealSpeech || !meaningful) {
+          return;
         }
+
+        recognitionGotFinal = true;
+        commandModeActive = false;
+
+        if (commandDeadlineTimer) {
+          clearTimeout(commandDeadlineTimer);
+          commandDeadlineTimer = null;
+        }
+
+        try {
+          recognition.stop();
+        } catch (ignore) {}
+
+        recognitionRunning = false;
+
+        setState(
+          "processing",
+          "PROCESSING",
+          "認識：" + finalText
+        );
+
+        showMessage("認識：" + finalText);
+
+        sendCommand(
+          finalText,
+          "VOICE_BROWSER"
+        );
       };
 
       recognition.onerror = function(event) {
@@ -1285,49 +1587,43 @@
 
         if (
           recognitionGotFinal ||
-          recognitionFallbackStarted
+          !commandModeActive
         ) {
           return;
         }
 
         var errorName =
-          String(
-            event && event.error
-              ? event.error
-              : ""
-          );
+          String(event && event.error ? event.error : "");
+
+        // 無音・認識失敗・一時ネットワークエラーでは
+        // 勝手に回答せず10秒待機を続ける。
+        if (
+          errorName === "no-speech" ||
+          errorName === "aborted" ||
+          errorName === "network"
+        ) {
+          return;
+        }
 
         if (
           errorName === "not-allowed" ||
           errorName === "service-not-allowed"
         ) {
+          if (commandDeadlineTimer) {
+            clearTimeout(commandDeadlineTimer);
+            commandDeadlineTimer = null;
+          }
+
+          commandModeActive = false;
+
           setState(
             "error",
             "MIC ERROR",
             "音声認識のマイク権限を確認してください。"
           );
 
-          setTimeout(
-            returnToStandby,
-            1700
-          );
-
-          return;
+          setTimeout(returnToStandby, 1700);
         }
-
-        recognitionFallbackStarted =
-          true;
-
-        setState(
-          "listening",
-          "FALLBACK",
-          "録音方式へ切り替えます..."
-        );
-
-        setTimeout(
-          beginVoiceRecording,
-          180
-        );
       };
 
       recognition.onend = function() {
@@ -1335,49 +1631,28 @@
 
         if (
           recognitionGotFinal ||
-          recognitionFallbackStarted
+          !commandModeActive
         ) {
           return;
         }
 
-        recognitionFallbackStarted =
-          true;
-
-        setState(
-          "listening",
-          "FALLBACK",
-          "聞き取れなかったため録音方式で再試行します..."
-        );
-
         setTimeout(
-          beginVoiceRecording,
-          180
+          startCommandRecognitionCycle_,
+          220
         );
       };
 
       recognition.start();
 
-      if (recognitionHardTimer) {
-        clearTimeout(
-          recognitionHardTimer
-        );
-      }
-
-      recognitionHardTimer =
-        setTimeout(function() {
-          if (
-            recognitionRunning &&
-            !recognitionGotFinal
-          ) {
-            try {
-              recognition.stop();
-            } catch (ignore) {}
-          }
-        }, 6200);
-
     } catch (err) {
       recognitionRunning = false;
-      beginVoiceRecording();
+
+      if (commandModeActive) {
+        setTimeout(
+          startCommandRecognitionCycle_,
+          500
+        );
+      }
     }
   }
 
@@ -1466,9 +1741,9 @@
           ? mediaRecorder.mimeType
           : (mimeType || "audio/mp4");
 
-      if (!recordedChunks.length) {
+      if (!recordedChunks.length || !speechDetected) {
         busy = false;
-        returnToStandby("音声を聞き取れませんでした");
+        cancelCommandForSilence_();
         return;
       }
 
@@ -1905,13 +2180,11 @@
           voiceEnabled ? "ON" : "OFF";
 
         document.getElementById("onlineText").textContent =
-          data.apiReady ? "SYSTEM ONLINE V4" : "API KEY NEEDED";
+          data.apiReady ? "SYSTEM ONLINE V5" : "API KEY NEEDED";
 
         if (SpeechRecognitionCtor) {
           document.getElementById("clapLabel").textContent =
-            clapEnabled
-              ? "CLAP × 2 / FAST VOICE READY"
-              : "FAST VOICE READY";
+            "WAKE WORD: JARVIS";
         }
 
         var summary = data.orderSummary || {};
@@ -1930,11 +2203,17 @@
   function setState(newState, title, sub) {
     state = newState;
 
-    var reactor = document.getElementById("reactor");
+    var reactor =
+      document.getElementById("reactor");
+
     reactor.className = "reactor";
 
-    if (newState !== "standby" && newState !== "offline") {
-      reactor.className += " " + newState;
+    if (
+      newState !== "standby" &&
+      newState !== "offline"
+    ) {
+      reactor.className +=
+        " " + newState;
     }
 
     document.getElementById("stateTitle").textContent =
@@ -1945,7 +2224,9 @@
 
     if (newState === "standby") {
       document.getElementById("clapLabel").textContent =
-        clapEnabled ? "CLAP × 2 TO ACTIVATE" : "VOICE BUTTON READY";
+        SpeechRecognitionCtor
+          ? "WAKE WORD: JARVIS"
+          : "VOICE BUTTON READY";
     }
   }
 
@@ -1953,23 +2234,34 @@
   function returnToStandby(subText) {
     if (state === "offline") return;
 
+    commandModeActive = false;
+
+    if (commandDeadlineTimer) {
+      clearTimeout(commandDeadlineTimer);
+      commandDeadlineTimer = null;
+    }
+
     setState(
       "standby",
       "STANDBY",
       subText ||
-        (clapEnabled
-          ? "拍手を2回すると音声入力を開始します"
+        (SpeechRecognitionCtor
+          ? "「ジャービス」と呼んでください"
           : "マイクボタンから音声入力できます")
     );
 
     setTimeout(function() {
       if (state === "standby") {
         document.getElementById("stateSub").textContent =
-          clapEnabled
-            ? "拍手を2回すると音声入力を開始します"
+          SpeechRecognitionCtor
+            ? "「ジャービス」と呼んでください"
             : "マイクボタンから音声入力できます";
+
+        if (SpeechRecognitionCtor) {
+          startWakeWordRecognition_();
+        }
       }
-    }, 1400);
+    }, 500);
   }
 
 
