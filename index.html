@@ -475,7 +475,7 @@
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V5.3</div>
+      <div class="online-text" id="onlineText">BOOTING V8.1</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -593,6 +593,9 @@
   var state = "offline";
   var busy = false;
   var voiceEnabled = true;
+
+  // ORDER FAST LANE
+  var orderPendingUntil = 0;
   var clapEnabled = true;
   var sensitivity = 6;
   var micReady = false;
@@ -1533,6 +1536,11 @@
     );
 
     s = s.replace(
+      /(?:三宅(?:様|さん)?|3\s*(?:宅|択|たく|タク))(?=\s|$|[にのではをがへ、。,.!！?？])/g,
+      "3卓"
+    );
+
+    s = s.replace(
       /(?:委託|お得)(?=\s|$|[にのではをがへ、。,.!！?？])/g,
       "6卓"
     );
@@ -1968,25 +1976,101 @@
   }
 
 
+  function isLikelyOrderFastClient_(text) {
+    var s =
+      normalizeRestaurantVoiceTranscriptClient_(
+        String(text || "").trim()
+      );
+
+    if (!s) return false;
+
+    // 数量だけの続きは、直前に注文保留がある時だけFASTへ。
+    if (
+      Date.now() < orderPendingUntil &&
+      /^[0-9０-９一二三四五六七八九十]+\s*(?:点|つ|個|皿|人前|枚)?(?:で|です|お願い|お願いします|追加|入れて)?[!！。．.]?$/.test(s)
+    ) {
+      return true;
+    }
+
+    if (
+      /(オーダー|注文|未提供|未完了|提供済|完了|終了|終わり|入ります|入れます|入れて|追加|取り消|取消|キャンセル|調理|未調理|上がった|上がり|戻して)/.test(s)
+    ) {
+      return true;
+    }
+
+    // 「1卓に餃子」まで語尾が落ち、
+    // さらに1卓が「自宅 / 食卓」等に誤認識されたケースも救済。
+    if (
+      /(?:食卓|自宅|三宅(?:様|さん)?|委託|お得|[0-7]\s*(?:宅|択|たく|タク))(?=.*(?:に|へ|の))/.test(s) &&
+      !/(天気|天候|ニュース|検索|調べ)/.test(s)
+    ) {
+      return true;
+    }
+
+    // 卓番号を含む発話は、天気・Web質問でない限り注文系を優先。
+    if (
+      /(?:座[1-3]|[0-7]\s*(?:卓|テーブル)|(?:卓|テーブル)\s*[0-7])/.test(s) &&
+      !/(天気|天候|ニュース|検索|調べ)/.test(s)
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+
   function sendCommand(text, inputType) {
     if (!text || busy) return;
 
     busy = true;
-    showMessage(text);
-    setState("processing", "PROCESSING", "指示を処理しています...");
+
+    var normalizedClientText =
+      normalizeRestaurantVoiceTranscriptClient_(
+        String(text || "").trim()
+      );
+
+    var orderFast =
+      isLikelyOrderFastClient_(
+        normalizedClientText
+      );
+
+    showMessage(
+      normalizedClientText
+    );
+
+    if (orderFast) {
+      setState(
+        "processing",
+        "ORDER FAST",
+        "注文システムへ最短経路で送信中..."
+      );
+    } else {
+      setState(
+        "processing",
+        "PROCESSING",
+        "指示を処理しています..."
+      );
+    }
 
     apiRequest(
-      "command",
+      orderFast
+        ? "order_fast"
+        : "command",
       {
-        text: text,
-        deviceId: deviceId,
-        inputType: inputType || "TEXT"
+        text:
+          normalizedClientText,
+        deviceId:
+          deviceId,
+        inputType:
+          inputType || "TEXT"
       },
       function(result) {
         busy = false;
         handleResult(result);
       },
-      30000
+      orderFast
+        ? 12000
+        : 30000
     );
   }
 
@@ -2004,18 +2088,48 @@
       showMessage(message);
     }
 
+    if (result.pendingOrder === true) {
+      orderPendingUntil =
+        Date.now() +
+        Number(
+          result.pendingTtlSec || 90
+        ) * 1000;
+    } else if (
+      result.fastLane === true &&
+      result.action !== "ADD_ORDER_PENDING"
+    ) {
+      orderPendingUntil = 0;
+    }
+
     if (ok) {
+      document.getElementById("onlineText").textContent =
+        "SYSTEM ONLINE V8.1";
+
       setState(
         "complete",
         "COMPLETE",
-        result.mode === "fast" ? "FAST COMMAND" : "JARVIS RESPONSE"
+        result.fastLane === true
+          ? "ORDER FAST"
+          : (
+            result.mode === "fast"
+              ? "FAST COMMAND"
+              : "JARVIS RESPONSE"
+          )
       );
     } else {
       setState("error", "ERROR", "処理を確認してください");
     }
 
-    if (result.refreshStats) {
-      setTimeout(loadBootstrap, 250);
+    // ORDER FAST直後はbootstrapを走らせない。
+    // 追加のGAS実行が次の注文操作と競合するのを防ぐ。
+    if (
+      result.refreshStats &&
+      result.fastLane !== true
+    ) {
+      setTimeout(
+        loadBootstrap,
+        650
+      );
     }
 
     if (voiceEnabled && (result.speak || message)) {
@@ -2040,63 +2154,73 @@
     if (!token) {
       callback({
         success: false,
-        message: "ペアリングトークンが未設定です。"
+        message:
+          "ペアリングトークンが未設定です。"
       });
       return;
     }
 
-    var requestId = makeSecureRequestId_();
+    var requestId =
+      makeSecureRequestId_();
 
     var params =
       new URLSearchParams();
 
-    params.set("token", token);
-    params.set("requestId", requestId);
-    params.set("action", action);
+    params.set(
+      "token",
+      token
+    );
+
+    params.set(
+      "requestId",
+      requestId
+    );
+
+    params.set(
+      "action",
+      action
+    );
 
     data = data || {};
 
-    Object.keys(data).forEach(function(key) {
-      params.set(
-        key,
-        data[key] == null
-          ? ""
-          : String(data[key])
-      );
-    });
-
-    // クロスオリジンのためレスポンス本文は読まない。
-    // POSTだけ送り、結果はJSONPポーリングで取得する。
-    fetch(GAS_URL, {
-      method: "POST",
-      mode: "no-cors",
-      cache: "no-store",
-      headers: {
-        "Content-Type":
-          "application/x-www-form-urlencoded;charset=UTF-8"
-      },
-      body: params.toString()
-    }).then(function() {
-      if (action === "audio") {
-        setState(
-          "processing",
-          "PROCESSING",
-          "GASで音声を処理しています..."
+    Object.keys(data)
+      .forEach(function(key) {
+        params.set(
+          key,
+          data[key] == null
+            ? ""
+            : String(data[key])
         );
-      }
-
-      pollRequestResult_(
-        requestId,
-        callback,
-        Number(timeoutMs || 30000)
-      );
-
-    }).catch(function() {
-      callback({
-        success: false,
-        message:
-          "JARVIS GASへPOST送信できませんでした。"
       });
+
+    // 重要:
+    // POSTの完了を待ってからpollを始めると、
+    // GAS処理時間 + poll時間になってしまう。
+    // POST送信と同時に結果待ちを開始する。
+    pollRequestResult_(
+      requestId,
+      callback,
+      Number(
+        timeoutMs || 30000
+      ),
+      action === "order_fast"
+        ? 300
+        : 500
+    );
+
+    fetch(
+      GAS_URL,
+      {
+        method: "POST",
+        mode: "no-cors",
+        cache: "no-store",
+        // URLSearchParamsを直接渡して、
+        // Safariにform-urlencodedを安全に設定させる。
+        body: params
+      }
+    ).catch(function() {
+      // POST側のfetchエラーだけでは失敗確定にしない。
+      // GAS側で受理済みの可能性があるためpollを継続する。
     });
   }
 
@@ -2130,11 +2254,37 @@
   }
 
 
+  function acknowledgeRequestResult_(requestId) {
+    try {
+      fetch(
+        GAS_URL +
+          "?api=ack" +
+          "&requestId=" +
+          encodeURIComponent(
+            requestId
+          ) +
+          "&_=" +
+          Date.now(),
+        {
+          method: "GET",
+          mode: "no-cors",
+          cache: "no-store"
+        }
+      ).catch(function() {});
+    } catch (ignore) {}
+  }
+
+
   function pollRequestResult_(
     requestId,
     callback,
-    timeoutMs
+    timeoutMs,
+    pollIntervalMs
   ) {
+    pollIntervalMs =
+      Number(
+        pollIntervalMs || 500
+      );
     var startedAt = Date.now();
     var finished = false;
 
@@ -2159,8 +2309,9 @@
       if (Date.now() - startedAt > timeoutMs) {
         finish({
           success: false,
-          message:
-            "JARVIS GASとの通信がタイムアウトしました。"
+          errorCode: "JARVIS_POLL_TIMEOUT",
+          transportTimeout: true,
+          message: "JARVIS GASとの通信がタイムアウトしました。"
         });
         return;
       }
@@ -2196,6 +2347,11 @@
         cleanup();
 
         if (packet.ready === true) {
+          // 受信できた後にだけGAS側の結果を削除。
+          acknowledgeRequestResult_(
+            requestId
+          );
+
           finish(
             packet.result || {
               success: false,
@@ -2206,12 +2362,21 @@
           return;
         }
 
-        setTimeout(poll, 550);
+        if (packet.processing === true) {
+          if (state === "processing") {
+            document.getElementById("stateSub").textContent =
+              "GAS処理中... " + pollCount;
+          }
+          setTimeout(poll, pollIntervalMs);
+          return;
+        }
+
+        setTimeout(poll, pollIntervalMs);
       };
 
       script.onerror = function() {
         cleanup();
-        setTimeout(poll, 850);
+        setTimeout(poll, pollIntervalMs);
       };
 
       script.async = true;
@@ -2228,8 +2393,8 @@
       document.head.appendChild(script);
     }
 
-    // POST処理が開始するまで少し待つ
-    setTimeout(poll, 450);
+    // POST送信とほぼ同時に確認開始
+    setTimeout(poll, 80);
   }
 
 
@@ -2273,7 +2438,7 @@
           voiceEnabled ? "ON" : "OFF";
 
         document.getElementById("onlineText").textContent =
-          data.apiReady ? "SYSTEM ONLINE V5.3" : "API KEY NEEDED";
+          data.apiReady ? "SYSTEM ONLINE V8.1" : "API KEY NEEDED";
 
         if (SpeechRecognitionCtor) {
           document.getElementById("clapLabel").textContent =
@@ -2523,6 +2688,583 @@
 
     savePairingToken(next);
     loadBootstrap();
+  };
+
+  // =========================================================
+  // SERINA JARVIS GitHub UI v8.1 / Protocol 8.1
+  // - 0.9秒 multi-final buffer
+  // - 10秒 confirmation mode（wake word不要）
+  // - OperationID維持 / timeout lookup recovery
+  // =========================================================
+
+  var V81_FINAL_SILENCE_MS = 900;
+  var V81_CONFIRM_TIMEOUT_MS = 10000;
+  var V81_LOOKUP_INTERVAL_MS = 1500;
+
+  var v81FinalParts = [];
+  var v81FinalTimer = null;
+  var v81FinalCommitStarted = false;
+
+  var v81ConfirmPending = null;
+  var v81ConfirmTimer = null;
+  var v81ConfirmRecognition = null;
+  var v81ConfirmRecognitionRunning = false;
+  var v81ConfirmRestartTimer = null;
+
+  var v81ActiveOrderRequest = null;
+
+  function makeOperationIdV81_() {
+    var base = makeSecureRequestId_();
+    return ("op_" + String(base || "").replace(/[^A-Za-z0-9_-]/g, "")).slice(0, 120);
+  }
+
+  function clearFinalBufferV81_() {
+    v81FinalParts = [];
+    v81FinalCommitStarted = false;
+    if (v81FinalTimer) {
+      clearTimeout(v81FinalTimer);
+      v81FinalTimer = null;
+    }
+  }
+
+  function hasExplicitTerminalV81_(text) {
+    return /(?:以上|お願いします|お願い)[。.!！]?\s*$/.test(String(text || "").trim());
+  }
+
+  function commitFinalBufferV81_() {
+    if (v81FinalCommitStarted) return;
+    var finalText = normalizeRestaurantVoiceTranscriptClient_(
+      v81FinalParts.join(" ").replace(/\s+/g, " ").trim()
+    );
+    if (!isMeaningfulRecognizedText_(finalText)) return;
+
+    v81FinalCommitStarted = true;
+    recognitionGotFinal = true;
+    commandModeActive = false;
+
+    if (commandDeadlineTimer) {
+      clearTimeout(commandDeadlineTimer);
+      commandDeadlineTimer = null;
+    }
+    if (v81FinalTimer) {
+      clearTimeout(v81FinalTimer);
+      v81FinalTimer = null;
+    }
+    if (recognition) {
+      try { recognition.stop(); } catch (ignore) {}
+    }
+    recognitionRunning = false;
+
+    setState("processing", "PROCESSING", "認識：" + finalText);
+    showMessage("認識：" + finalText);
+    clearFinalBufferV81_();
+    sendCommand(finalText, "VOICE_BROWSER");
+  }
+
+  // v8.1: 一つのfinalで即送信せず、最後のfinalから0.9秒待つ。
+  // continuous=falseを維持して古いiOSとの互換性を優先し、onend時は必要なら認識を再起動する。
+  function startCommandRecognitionCycle_() {
+    if (!commandModeActive || recognitionRunning || !SpeechRecognitionCtor) return;
+
+    try {
+      recognition = new SpeechRecognitionCtor();
+      recognition.lang = "ja-JP";
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 3;
+
+      recognition.onstart = function() {
+        recognitionRunning = true;
+        setState("listening", "LISTENING", "ご用件をどうぞ");
+      };
+
+      recognition.onresult = function(event) {
+        var added = false;
+        for (var i = event.resultIndex; i < event.results.length; i++) {
+          var result = event.results[i];
+          if (!result || !result.isFinal) continue;
+          var best = chooseBestRestaurantTranscript_(result);
+          best = normalizeRestaurantVoiceTranscriptClient_(String(best || "").trim());
+          if (!best || !isMeaningfulRecognizedText_(best)) continue;
+
+          finishCommandSpeechAccumulation_();
+          var enoughRealSpeech = commandSpeechDetected && commandSpeechAccumulatedMs >= 180;
+          if (!enoughRealSpeech) continue;
+
+          v81FinalParts.push(best);
+          added = true;
+        }
+        if (!added) return;
+
+        var joined = v81FinalParts.join(" ");
+        if (v81FinalTimer) clearTimeout(v81FinalTimer);
+
+        if (hasExplicitTerminalV81_(joined)) {
+          commitFinalBufferV81_();
+          return;
+        }
+
+        v81FinalTimer = setTimeout(commitFinalBufferV81_, V81_FINAL_SILENCE_MS);
+      };
+
+      recognition.onerror = function(event) {
+        recognitionRunning = false;
+        if (recognitionGotFinal || !commandModeActive) return;
+        var errorName = String(event && event.error ? event.error : "");
+        if (errorName === "no-speech" || errorName === "aborted" || errorName === "network") return;
+        if (errorName === "not-allowed" || errorName === "service-not-allowed") {
+          if (commandDeadlineTimer) {
+            clearTimeout(commandDeadlineTimer);
+            commandDeadlineTimer = null;
+          }
+          commandModeActive = false;
+          beginVoiceRecording();
+        }
+      };
+
+      recognition.onend = function() {
+        recognitionRunning = false;
+        if (!commandModeActive || recognitionGotFinal || v81FinalCommitStarted) return;
+        // final buffer待機中でも短い続き発話を拾う。
+        setTimeout(function() {
+          if (commandModeActive && !recognitionRunning && !recognitionGotFinal) {
+            startCommandRecognitionCycle_();
+          }
+        }, 90);
+      };
+
+      recognition.start();
+    } catch (err) {
+      recognitionRunning = false;
+      if (commandModeActive && !recognitionGotFinal) {
+        setTimeout(startCommandRecognitionCycle_, 180);
+      }
+    }
+  }
+
+  function beginFastVoiceInput_() {
+    stopWakeWordRecognition_();
+    stopConfirmationModeV81_(false);
+    clearFinalBufferV81_();
+
+    commandModeActive = true;
+    commandSpeechDetected = false;
+    commandSpeechActiveSince = 0;
+    commandSpeechAccumulatedMs = 0;
+
+    if (commandDeadlineTimer) clearTimeout(commandDeadlineTimer);
+    commandDeadlineTimer = setTimeout(cancelCommandForSilence_, 10000);
+
+    if (!SpeechRecognitionCtor) {
+      beginVoiceRecording();
+      return;
+    }
+    recognitionGotFinal = false;
+    recognitionFallbackStarted = false;
+    startCommandRecognitionCycle_();
+  }
+
+  function stopConfirmationRecognitionV81_() {
+    if (v81ConfirmRestartTimer) {
+      clearTimeout(v81ConfirmRestartTimer);
+      v81ConfirmRestartTimer = null;
+    }
+    if (v81ConfirmRecognition) {
+      try {
+        v81ConfirmRecognition.onend = null;
+        v81ConfirmRecognition.onerror = null;
+        v81ConfirmRecognition.stop();
+      } catch (ignore) {}
+    }
+    v81ConfirmRecognition = null;
+    v81ConfirmRecognitionRunning = false;
+  }
+
+  function stopConfirmationModeV81_(clearPending) {
+    if (v81ConfirmTimer) {
+      clearTimeout(v81ConfirmTimer);
+      v81ConfirmTimer = null;
+    }
+    stopConfirmationRecognitionV81_();
+    if (clearPending !== false) v81ConfirmPending = null;
+  }
+
+  function confirmationTimeoutV81_() {
+    stopConfirmationModeV81_(true);
+    busy = false;
+    setState("standby", "STANDBY", "確認が取れなかったため、登録していません。");
+    speak("確認が取れなかったため、登録していません。", function() {
+      setTimeout(returnToStandby, 300);
+    });
+  }
+
+  function isRepeatConfirmationV81_(text) {
+    var s = String(text || "").replace(/[ 　]/g, "");
+    return /^(もう一回|もう一度|今なんて言った|注文内容もう一回教えて|注文内容教えて)[。.!！?？]*$/.test(s) ||
+      /(注文内容|なんて言った|何て言った).*(教えて|もう一回|もう一度)/.test(s);
+  }
+
+  function isYesConfirmationV81_(text) {
+    var s = String(text || "").replace(/[ 　]/g, "");
+    return /^(はい|うん|ok|オーケー|お願い|お願いします|登録して|実行して|それで)[。.!！]*$/i.test(s);
+  }
+
+  function isNoConfirmationV81_(text) {
+    var s = String(text || "").replace(/[ 　]/g, "");
+    return /^(いいえ|いや|やめて|やめる|キャンセル|取り消さない|取消さない|なし)[。.!！]*$/.test(s);
+  }
+
+  function startConfirmationRecognitionV81_() {
+    if (!v81ConfirmPending || v81ConfirmRecognitionRunning || !SpeechRecognitionCtor) return;
+    try {
+      v81ConfirmRecognition = new SpeechRecognitionCtor();
+      v81ConfirmRecognition.lang = "ja-JP";
+      v81ConfirmRecognition.continuous = false;
+      v81ConfirmRecognition.interimResults = false;
+      v81ConfirmRecognition.maxAlternatives = 3;
+
+      v81ConfirmRecognition.onstart = function() {
+        v81ConfirmRecognitionRunning = true;
+        setState("listening", "CONFIRM", "「はい」「いいえ」、または新しい指示をどうぞ");
+      };
+
+      v81ConfirmRecognition.onresult = function(event) {
+        var text = "";
+        for (var i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i] && event.results[i].isFinal) {
+            text += chooseBestRestaurantTranscript_(event.results[i]);
+          }
+        }
+        text = normalizeRestaurantVoiceTranscriptClient_(String(text || "").trim());
+        if (!isMeaningfulRecognizedText_(text) && !isYesConfirmationV81_(text) && !isNoConfirmationV81_(text)) return;
+
+        stopConfirmationRecognitionV81_();
+        if (v81ConfirmTimer) {
+          clearTimeout(v81ConfirmTimer);
+          v81ConfirmTimer = null;
+        }
+
+        if (isYesConfirmationV81_(text) || isNoConfirmationV81_(text) || isRepeatConfirmationV81_(text)) {
+          sendConfirmationAnswerV81_(text);
+          return;
+        }
+
+        // 別の意味ある命令: 旧確認は破棄し、新しいOperationとして最初から処理。
+        v81ConfirmPending = null;
+        busy = false;
+        sendCommand(text, "VOICE_BROWSER");
+      };
+
+      v81ConfirmRecognition.onerror = function(event) {
+        v81ConfirmRecognitionRunning = false;
+        var name = String(event && event.error ? event.error : "");
+        if (name === "not-allowed" || name === "service-not-allowed") {
+          document.getElementById("stateSub").textContent = "確認音声を利用できません。画面のマイクを使用してください。";
+        }
+      };
+
+      v81ConfirmRecognition.onend = function() {
+        v81ConfirmRecognitionRunning = false;
+        if (!v81ConfirmPending || !v81ConfirmTimer) return;
+        v81ConfirmRestartTimer = setTimeout(startConfirmationRecognitionV81_, 100);
+      };
+      v81ConfirmRecognition.start();
+    } catch (err) {
+      v81ConfirmRecognitionRunning = false;
+      if (v81ConfirmPending && v81ConfirmTimer) {
+        v81ConfirmRestartTimer = setTimeout(startConfirmationRecognitionV81_, 250);
+      }
+    }
+  }
+
+  function beginConfirmationModeV81_(result) {
+    stopWakeWordRecognition_();
+    stopConfirmationModeV81_(false);
+    v81ConfirmPending = {
+      operationId: String(result.operationId || ""),
+      confirmationText: String(result.confirmationText || result.message || "確認しますか？"),
+      pendingSummary: String(result.pendingSummary || "")
+    };
+
+    // Timer is intentionally started AFTER TTS completes.
+    speak(v81ConfirmPending.confirmationText, function() {
+      if (!v81ConfirmPending) return;
+      setState("listening", "CONFIRM", "10秒以内にお答えください");
+      v81ConfirmTimer = setTimeout(confirmationTimeoutV81_, V81_CONFIRM_TIMEOUT_MS);
+      startConfirmationRecognitionV81_();
+    });
+  }
+
+  function sendConfirmationAnswerV81_(text) {
+    if (!v81ConfirmPending || busy) return;
+    var pending = v81ConfirmPending;
+    busy = true;
+    setState("processing", "CONFIRMING", "確認内容を処理しています...");
+
+    apiRequest(
+      "order_confirm",
+      {
+        operationId: pending.operationId,
+        answer: text,
+        deviceId: deviceId
+      },
+      function(result) {
+        busy = false;
+        handleResult(result);
+      },
+      15000
+    );
+  }
+
+  function makeUnknownResultV81_() {
+    return {
+      success: false,
+      resultUnknown: true,
+      errorCode: "RESULT_UNKNOWN",
+      message: "注文結果を確認できませんでした。再登録はしていません。",
+      speak: "注文結果を確認できませんでした。再登録はしていません。"
+    };
+  }
+
+  function recoverOrderTimeoutV81_(ctx) {
+    if (!ctx || !ctx.operationId) {
+      busy = false;
+      handleResult(makeUnknownResultV81_());
+      return;
+    }
+
+    setState("processing", "VERIFYING", "注文状況を確認しています。");
+    showMessage("注文状況を確認しています。");
+
+    var attempt = 0;
+    var allNotFound = true;
+
+    function finishUnknown() {
+      busy = false;
+      handleResult(makeUnknownResultV81_());
+    }
+
+    function finishFromLookup(result) {
+      busy = false;
+      if (result && result.bridgeState === "SUCCESS") {
+        result.success = true;
+        result.message = result.message || "登録済みです。";
+        result.speak = result.message;
+      }
+      handleResult(result);
+    }
+
+    function lookupNext() {
+      attempt++;
+      apiRequest(
+        "order_lookup",
+        { operationId: ctx.operationId, deviceId: deviceId },
+        function(result) {
+          var st = String(result && result.bridgeState || "");
+
+          if (st === "SUCCESS" || st === "SHADOW_OK" || st === "FAILED_ZERO_WRITE" || st === "ABORTED" || st === "OPERATION_CONFLICT") {
+            finishFromLookup(result);
+            return;
+          }
+
+          if (st === "RECOVERY_REQUIRED") {
+            allNotFound = false;
+            resendOriginal(true);
+            return;
+          }
+
+          if (st !== "NOT_FOUND") allNotFound = false;
+
+          if (attempt < 4) {
+            setTimeout(lookupNext, V81_LOOKUP_INTERVAL_MS);
+            return;
+          }
+
+          if (allNotFound) {
+            resendOriginal(false);
+          } else {
+            finishUnknown();
+          }
+        },
+        9000
+      );
+    }
+
+    function resendOriginal(isRecovery) {
+      apiRequest(
+        "order_fast",
+        {
+          text: ctx.text,
+          deviceId: deviceId,
+          inputType: ctx.inputType || "VOICE_BROWSER",
+          operationId: ctx.operationId
+        },
+        function(result) {
+          if (!(result && result.errorCode === "JARVIS_POLL_TIMEOUT")) {
+            busy = false;
+            handleResult(result);
+            return;
+          }
+
+          var postLookupCount = 0;
+          function postLookup() {
+            postLookupCount++;
+            apiRequest(
+              "order_lookup",
+              { operationId: ctx.operationId, deviceId: deviceId },
+              function(lr) {
+                var st = String(lr && lr.bridgeState || "");
+                if (st === "SUCCESS" || st === "SHADOW_OK" || st === "FAILED_ZERO_WRITE" || st === "ABORTED" || st === "OPERATION_CONFLICT") {
+                  finishFromLookup(lr);
+                  return;
+                }
+                if (postLookupCount < 2) {
+                  setTimeout(postLookup, V81_LOOKUP_INTERVAL_MS);
+                } else {
+                  finishUnknown();
+                }
+              },
+              9000
+            );
+          }
+          setTimeout(postLookup, V81_LOOKUP_INTERVAL_MS);
+        },
+        12000
+      );
+    }
+
+    lookupNext();
+  }
+
+  function sendCommand(text, inputType, forcedOperationId) {
+    if (!text || busy) return;
+
+    stopConfirmationModeV81_(true);
+    busy = true;
+
+    var normalizedClientText = normalizeRestaurantVoiceTranscriptClient_(String(text || "").trim());
+    var orderFast = isLikelyOrderFastClient_(normalizedClientText);
+    showMessage(normalizedClientText);
+
+    if (orderFast) {
+      var opId = String(forcedOperationId || makeOperationIdV81_());
+      v81ActiveOrderRequest = {
+        operationId: opId,
+        text: normalizedClientText,
+        inputType: inputType || "TEXT"
+      };
+      setState("processing", "ORDER FAST 8.1", "注文システムへ送信中...");
+      apiRequest(
+        "order_fast",
+        {
+          text: normalizedClientText,
+          deviceId: deviceId,
+          inputType: inputType || "TEXT",
+          operationId: opId
+        },
+        function(result) {
+          if (result && result.errorCode === "JARVIS_POLL_TIMEOUT") {
+            recoverOrderTimeoutV81_(v81ActiveOrderRequest);
+            return;
+          }
+          busy = false;
+          handleResult(result);
+        },
+        12000
+      );
+      return;
+    }
+
+    v81ActiveOrderRequest = null;
+    setState("processing", "PROCESSING", "指示を処理しています...");
+    apiRequest(
+      "command",
+      { text: normalizedClientText, deviceId: deviceId, inputType: inputType || "TEXT" },
+      function(result) {
+        busy = false;
+        handleResult(result);
+      },
+      30000
+    );
+  }
+
+  function handleResult(result) {
+    result = result || {};
+
+    if (result.confirmationRequired === true) {
+      busy = false;
+      var confirmMessage = String(result.confirmationText || result.message || "この内容で実行しますか？");
+      showMessage(confirmMessage);
+      setState("processing", "CONFIRM", "確認内容を読み上げます");
+      beginConfirmationModeV81_(result);
+      return;
+    }
+
+    stopConfirmationModeV81_(true);
+
+    var ok = result.success === true;
+    var message = String(result.message || "応答を取得できませんでした。");
+    var transcript = String(result.normalizedTranscript || result.transcript || "").trim();
+
+    if (transcript) showMessage("認識：" + transcript + "\n\n" + message);
+    else showMessage(message);
+
+    document.getElementById("onlineText").textContent = "SYSTEM ONLINE V8.1";
+
+    if (ok) {
+      setState("complete", "COMPLETE", result.shadow === true ? "SHADOW TEST" : (result.fastLane === true ? "ORDER FAST 8.1" : "JARVIS RESPONSE"));
+    } else {
+      setState("error", "ERROR", result.resultUnknown ? "RESULT UNKNOWN" : "処理を確認してください");
+    }
+
+    if (result.refreshStats && result.fastLane !== true) {
+      setTimeout(loadBootstrap, 650);
+    }
+
+    if (voiceEnabled && (result.speak || message)) {
+      speak(String(result.speak || message), function() {
+        setTimeout(returnToStandby, 260);
+      });
+    } else {
+      setTimeout(returnToStandby, 1100);
+    }
+  }
+
+  // v8.1 safety: a pending 0.9s final timer must never survive a 10s silence timeout
+  // or a return to standby. This prevents a delayed order send after the UI has already
+  // announced that nothing was registered.
+  var cancelCommandForSilenceBaseV81_ = cancelCommandForSilence_;
+  cancelCommandForSilence_ = function() {
+    clearFinalBufferV81_();
+    return cancelCommandForSilenceBaseV81_.apply(this, arguments);
+  };
+
+  var returnToStandbyBaseV81_ = returnToStandby;
+  returnToStandby = function(subText) {
+    clearFinalBufferV81_();
+    return returnToStandbyBaseV81_.call(this, subText);
+  };
+
+  // Manual button while confirmation is active = confirmation listening restart, not normal wake flow.
+  window.manualListen = function() {
+    if (busy) return;
+    if (v81ConfirmPending) {
+      stopConfirmationRecognitionV81_();
+      startConfirmationRecognitionV81_();
+      return;
+    }
+    if (state === "offline") {
+      alert("先にSYSTEM STARTを押してください。");
+      return;
+    }
+    if (!micReady) {
+      setState("error", "MIC ERROR", "マイクが起動していません。");
+      setTimeout(returnToStandby, 1600);
+      return;
+    }
+    stopWakeWordRecognition_();
+    setState("listening", "LISTENING", "ご用件をどうぞ");
+    beginFastVoiceInput_();
   };
 
 })();
