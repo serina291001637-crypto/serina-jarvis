@@ -475,7 +475,7 @@
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V8.1</div>
+      <div class="online-text" id="onlineText">BOOTING V8.1.1</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -629,6 +629,29 @@
     window.SpeechRecognition ||
     window.webkitSpeechRecognition ||
     null;
+
+  // v8.1.1 iPhone SE / 旧iOS互換:
+  // SafariではwebkitSpeechRecognitionが「存在する」のに実運用できない場合がある。
+  // その場合はWeb Speechを何度も再起動せず、MediaRecorder + GAS文字起こしへ切り替える。
+  function detectIOSMajorVersion_() {
+    var ua = String(navigator.userAgent || "");
+    if (!/(iPhone|iPad|iPod)/i.test(ua)) return 0;
+    var m = ua.match(/OS\s+(\d+)[_\.](\d+)/i);
+    return m ? parseInt(m[1], 10) || 0 : 0;
+  }
+
+  var iosMajorVersionV811_ = detectIOSMajorVersion_();
+  var legacyIOSRecorderModeV811_ =
+    iosMajorVersionV811_ > 0 && iosMajorVersionV811_ <= 15;
+  var browserSpeechUnavailableV811_ = legacyIOSRecorderModeV811_;
+
+  function shouldUseRecorderVoiceV811_() {
+    return (
+      !SpeechRecognitionCtor ||
+      legacyIOSRecorderModeV811_ ||
+      browserSpeechUnavailableV811_
+    );
+  }
 
   var recognition = null;
   var recognitionRunning = false;
@@ -785,15 +808,18 @@
         setState(
           "standby",
           "STANDBY",
-          SpeechRecognitionCtor
-            ? "「ジャービス」と呼んでください"
-            : "マイクボタンから音声入力できます"
+          shouldUseRecorderVoiceV811_()
+            ? "マイクボタンから音声入力できます"
+            : "「ジャービス」と呼んでください"
         );
 
         loadBootstrap();
 
-        if (SpeechRecognitionCtor) {
+        if (!shouldUseRecorderVoiceV811_()) {
           setTimeout(startWakeWordRecognition_, 450);
+        } else {
+          document.getElementById("clapLabel").textContent =
+            "VOICE INPUT: MIC BUTTON";
         }
       }, 1150);
     });
@@ -1224,7 +1250,7 @@
 
   function startWakeWordRecognition_() {
     if (
-      !SpeechRecognitionCtor ||
+      shouldUseRecorderVoiceV811_() ||
       !micReady ||
       state !== "standby" ||
       busy ||
@@ -1284,10 +1310,15 @@
 
         if (
           errorName === "not-allowed" ||
-          errorName === "service-not-allowed"
+          errorName === "service-not-allowed" ||
+          errorName === "audio-capture" ||
+          errorName === "network"
         ) {
+          browserSpeechUnavailableV811_ = true;
           document.getElementById("stateSub").textContent =
             "ウェイクワード利用不可。マイクボタンを使用してください。";
+          document.getElementById("clapLabel").textContent =
+            "VOICE INPUT: MIC BUTTON";
         }
       };
 
@@ -1297,7 +1328,8 @@
         if (
           state === "standby" &&
           !busy &&
-          !commandModeActive
+          !commandModeActive &&
+          !shouldUseRecorderVoiceV811_()
         ) {
           wakeRestartTimer =
             setTimeout(startWakeWordRecognition_, 600);
@@ -1479,7 +1511,7 @@
     commandDeadlineTimer =
       setTimeout(cancelCommandForSilence_, 10000);
 
-    if (!SpeechRecognitionCtor) {
+    if (shouldUseRecorderVoiceV811_()) {
       beginVoiceRecording();
       return;
     }
@@ -1587,7 +1619,7 @@
     if (
       !commandModeActive ||
       recognitionRunning ||
-      !SpeechRecognitionCtor
+      shouldUseRecorderVoiceV811_()
     ) {
       return;
     }
@@ -1708,22 +1740,14 @@
 
         if (
           errorName === "not-allowed" ||
-          errorName === "service-not-allowed"
+          errorName === "service-not-allowed" ||
+          errorName === "audio-capture" ||
+          errorName === "network"
         ) {
-          if (commandDeadlineTimer) {
-            clearTimeout(commandDeadlineTimer);
-            commandDeadlineTimer = null;
-          }
-
-          commandModeActive = false;
-
-          setState(
-            "error",
-            "MIC ERROR",
-            "音声認識のマイク権限を確認してください。"
-          );
-
-          setTimeout(returnToStandby, 1700);
+          browserSpeechUnavailableV811_ = true;
+          recognitionFallbackStarted = true;
+          recognitionRunning = false;
+          beginVoiceRecording();
         }
       };
 
@@ -1866,7 +1890,11 @@
   function monitorVoiceRecording(metrics) {
     var now = Date.now();
     var elapsed = now - recordingStartedAt;
-    var voiceThreshold = Math.max(0.028, noiseFloor * 1.65);
+    var voiceThreshold = shouldUseRecorderVoiceV811_()
+      ? Math.max(0.012, noiseFloor * 1.35)
+      : Math.max(0.028, noiseFloor * 1.65);
+    var endSilenceMsV811_ = shouldUseRecorderVoiceV811_() ? 950 : END_SILENCE_MS;
+    var noSpeechTimeoutMsV811_ = shouldUseRecorderVoiceV811_() ? 4000 : NO_SPEECH_TIMEOUT_MS;
 
     if (metrics.rms >= voiceThreshold) {
       speechDetected = true;
@@ -1874,13 +1902,13 @@
     } else if (speechDetected && elapsed > 650) {
       if (!silenceStartedAt) silenceStartedAt = now;
 
-      if (now - silenceStartedAt >= END_SILENCE_MS) {
+      if (now - silenceStartedAt >= endSilenceMsV811_) {
         stopVoiceRecording();
         return;
       }
     }
 
-    if (!speechDetected && elapsed >= NO_SPEECH_TIMEOUT_MS) {
+    if (!speechDetected && elapsed >= noSpeechTimeoutMsV811_) {
       stopVoiceRecording();
       return;
     }
@@ -1962,6 +1990,19 @@
     if (!text || busy) return;
 
     input.value = "";
+
+    // v8.1.1: 旧iPhoneで確認音声が使えない場合でも、入力欄の「はい/いいえ」を
+    // pending OperationIDへ正しく送る。通常の新規コマンドには流さない。
+    if (v81ConfirmPending && (isYesConfirmationV81_(text) || isNoConfirmationV81_(text) || isRepeatConfirmationV81_(text))) {
+      sendConfirmationAnswerV81_(text);
+      return;
+    }
+
+    if (v81ConfirmPending) {
+      v81ConfirmPending = null;
+      stopConfirmationModeV81_(true);
+    }
+
     sendCommand(text, "TEXT");
   };
 
@@ -2103,7 +2144,7 @@
 
     if (ok) {
       document.getElementById("onlineText").textContent =
-        "SYSTEM ONLINE V8.1";
+        "SYSTEM ONLINE V8.1.1";
 
       setState(
         "complete",
@@ -2764,7 +2805,7 @@
   // v8.1: 一つのfinalで即送信せず、最後のfinalから0.9秒待つ。
   // continuous=falseを維持して古いiOSとの互換性を優先し、onend時は必要なら認識を再起動する。
   function startCommandRecognitionCycle_() {
-    if (!commandModeActive || recognitionRunning || !SpeechRecognitionCtor) return;
+    if (!commandModeActive || recognitionRunning || shouldUseRecorderVoiceV811_()) return;
 
     try {
       recognition = new SpeechRecognitionCtor();
@@ -2811,13 +2852,16 @@
         recognitionRunning = false;
         if (recognitionGotFinal || !commandModeActive) return;
         var errorName = String(event && event.error ? event.error : "");
-        if (errorName === "no-speech" || errorName === "aborted" || errorName === "network") return;
-        if (errorName === "not-allowed" || errorName === "service-not-allowed") {
-          if (commandDeadlineTimer) {
-            clearTimeout(commandDeadlineTimer);
-            commandDeadlineTimer = null;
-          }
-          commandModeActive = false;
+        if (errorName === "no-speech" || errorName === "aborted") return;
+        if (
+          errorName === "not-allowed" ||
+          errorName === "service-not-allowed" ||
+          errorName === "audio-capture" ||
+          errorName === "network"
+        ) {
+          browserSpeechUnavailableV811_ = true;
+          recognitionFallbackStarted = true;
+          recognitionRunning = false;
           beginVoiceRecording();
         }
       };
@@ -2855,7 +2899,7 @@
     if (commandDeadlineTimer) clearTimeout(commandDeadlineTimer);
     commandDeadlineTimer = setTimeout(cancelCommandForSilence_, 10000);
 
-    if (!SpeechRecognitionCtor) {
+    if (shouldUseRecorderVoiceV811_()) {
       beginVoiceRecording();
       return;
     }
@@ -2915,7 +2959,7 @@
   }
 
   function startConfirmationRecognitionV81_() {
-    if (!v81ConfirmPending || v81ConfirmRecognitionRunning || !SpeechRecognitionCtor) return;
+    if (!v81ConfirmPending || v81ConfirmRecognitionRunning || shouldUseRecorderVoiceV811_()) return;
     try {
       v81ConfirmRecognition = new SpeechRecognitionCtor();
       v81ConfirmRecognition.lang = "ja-JP";
@@ -3249,6 +3293,15 @@
   window.manualListen = function() {
     if (busy) return;
     if (v81ConfirmPending) {
+      if (shouldUseRecorderVoiceV811_()) {
+        setState("listening", "CONFIRM", "旧iPhoneでは確認時のみ入力欄へ「はい」「いいえ」と入力してください");
+        var confirmInput = document.getElementById("textInput");
+        if (confirmInput) {
+          confirmInput.value = "";
+          try { confirmInput.focus(); } catch (ignore) {}
+        }
+        return;
+      }
       stopConfirmationRecognitionV81_();
       startConfirmationRecognitionV81_();
       return;
