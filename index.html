@@ -475,7 +475,7 @@
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V8.1.1</div>
+      <div class="online-text" id="onlineText">BOOTING V8.1.2</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -630,25 +630,16 @@
     window.webkitSpeechRecognition ||
     null;
 
-  // v8.1.1 iPhone SE / 旧iOS互換:
-  // SafariではwebkitSpeechRecognitionが「存在する」のに実運用できない場合がある。
-  // その場合はWeb Speechを何度も再起動せず、MediaRecorder + GAS文字起こしへ切り替える。
-  function detectIOSMajorVersion_() {
-    var ua = String(navigator.userAgent || "");
-    if (!/(iPhone|iPad|iPod)/i.test(ua)) return 0;
-    var m = ua.match(/OS\s+(\d+)[_\.](\d+)/i);
-    return m ? parseInt(m[1], 10) || 0 : 0;
-  }
-
-  var iosMajorVersionV811_ = detectIOSMajorVersion_();
-  var legacyIOSRecorderModeV811_ =
-    iosMajorVersionV811_ > 0 && iosMajorVersionV811_ <= 15;
-  var browserSpeechUnavailableV811_ = legacyIOSRecorderModeV811_;
+  // v8.1.2 iPhone SE wake-word restore:
+  // 旧バージョンV5でiPhone SEでも実績があったため、iOSのバージョンだけで
+  // Web Speechを無効化しない。webkitSpeechRecognition が存在する端末では
+  // まず「ジャービス」常時待機を試し、権限/サービス拒否のような
+  // ハードエラーの時だけ MediaRecorder + GAS文字起こしへ退避する。
+  var browserSpeechUnavailableV811_ = false;
 
   function shouldUseRecorderVoiceV811_() {
     return (
       !SpeechRecognitionCtor ||
-      legacyIOSRecorderModeV811_ ||
       browserSpeechUnavailableV811_
     );
   }
@@ -1310,16 +1301,18 @@
 
         if (
           errorName === "not-allowed" ||
-          errorName === "service-not-allowed" ||
-          errorName === "audio-capture" ||
-          errorName === "network"
+          errorName === "service-not-allowed"
         ) {
           browserSpeechUnavailableV811_ = true;
           document.getElementById("stateSub").textContent =
-            "ウェイクワード利用不可。マイクボタンを使用してください。";
+            "音声認識の許可を確認してください。マイクボタンも使用できます。";
           document.getElementById("clapLabel").textContent =
             "VOICE INPUT: MIC BUTTON";
+          return;
         }
+
+        // V5互換: no-speech / aborted / network / audio-capture は
+        // 端末非対応と決めつけない。onendでウェイク待機を再起動する。
       };
 
       wakeRecognition.onend = function() {
@@ -1740,11 +1733,17 @@
 
         if (
           errorName === "not-allowed" ||
-          errorName === "service-not-allowed" ||
-          errorName === "audio-capture" ||
-          errorName === "network"
+          errorName === "service-not-allowed"
         ) {
           browserSpeechUnavailableV811_ = true;
+          recognitionFallbackStarted = true;
+          recognitionRunning = false;
+          beginVoiceRecording();
+          return;
+        }
+
+        if (errorName === "audio-capture") {
+          // 一時的なマイク競合は端末非対応扱いにせず、今回だけ録音へ退避。
           recognitionFallbackStarted = true;
           recognitionRunning = false;
           beginVoiceRecording();
@@ -1991,7 +1990,7 @@
 
     input.value = "";
 
-    // v8.1.1: 旧iPhoneで確認音声が使えない場合でも、入力欄の「はい/いいえ」を
+    // v8.1.2: Web Speechが本当に使えない端末でも、入力欄の「はい/いいえ」を
     // pending OperationIDへ正しく送る。通常の新規コマンドには流さない。
     if (v81ConfirmPending && (isYesConfirmationV81_(text) || isNoConfirmationV81_(text) || isRepeatConfirmationV81_(text))) {
       sendConfirmationAnswerV81_(text);
@@ -2144,7 +2143,7 @@
 
     if (ok) {
       document.getElementById("onlineText").textContent =
-        "SYSTEM ONLINE V8.1.1";
+        "SYSTEM ONLINE V8.1.2";
 
       setState(
         "complete",
@@ -2523,7 +2522,7 @@
 
     if (newState === "standby") {
       document.getElementById("clapLabel").textContent =
-        SpeechRecognitionCtor
+        !shouldUseRecorderVoiceV811_()
           ? "WAKE WORD: JARVIS"
           : "VOICE BUTTON READY";
     }
@@ -2544,7 +2543,7 @@
       "standby",
       "STANDBY",
       subText ||
-        (SpeechRecognitionCtor
+        (!shouldUseRecorderVoiceV811_()
           ? "「ジャービス」と呼んでください"
           : "マイクボタンから音声入力できます")
     );
@@ -2552,11 +2551,11 @@
     setTimeout(function() {
       if (state === "standby") {
         document.getElementById("stateSub").textContent =
-          SpeechRecognitionCtor
+          !shouldUseRecorderVoiceV811_()
             ? "「ジャービス」と呼んでください"
             : "マイクボタンから音声入力できます";
 
-        if (SpeechRecognitionCtor) {
+        if (!shouldUseRecorderVoiceV811_()) {
           startWakeWordRecognition_();
         }
       }
@@ -2855,11 +2854,17 @@
         if (errorName === "no-speech" || errorName === "aborted") return;
         if (
           errorName === "not-allowed" ||
-          errorName === "service-not-allowed" ||
-          errorName === "audio-capture" ||
-          errorName === "network"
+          errorName === "service-not-allowed"
         ) {
           browserSpeechUnavailableV811_ = true;
+          recognitionFallbackStarted = true;
+          recognitionRunning = false;
+          beginVoiceRecording();
+          return;
+        }
+
+        if (errorName === "audio-capture") {
+          // 一時的なマイク競合は端末非対応扱いにせず、今回だけ録音へ退避。
           recognitionFallbackStarted = true;
           recognitionRunning = false;
           beginVoiceRecording();
