@@ -475,7 +475,7 @@
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V8.1.5</div>
+      <div class="online-text" id="onlineText">BOOTING V8.1.6</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -627,9 +627,10 @@
     window.webkitSpeechRecognition ||
     null;
 
-  // v8.1.5: iPhone SE / iOS15系では、ウェイクワードだけWeb Speechを使い、
-  // 「はい」の後の注文本文は、初期版で実績のある MediaRecorder + GAS文字起こしへ固定する。
-  // v8.1.4に残っていたVAD判定で、正しく認識した注文まで無音扱いになる問題を回避する。
+  // v8.1.6: iPhone SE / iOS15系は、実績のあったV5方式へ戻す。
+  // ウェイクワードも注文本文も Web Speech を使用する。
+  // 旧iPhoneではAudioContextのVAD判定を注文送信の必須条件にしない。
+  // MediaRecorder は Web Speech 自体が無い端末だけのフォールバック。
   function detectIOSMajorVersionV815_() {
     var ua = String(navigator.userAgent || "");
     if (!/(iPhone|iPad|iPod)/i.test(ua)) return 0;
@@ -1490,14 +1491,9 @@
     commandDeadlineTimer =
       setTimeout(cancelCommandForSilence_, 10000);
 
-    // iPhone SE / iOS15系は、ウェイクワード認識はWeb Speechのまま。
-    // ただし注文本文はRecorderへ直行する。これで「ジャービス」→「はい」→注文の
-    // 以前の安定経路を復活させ、10秒後の無音キャンセルを防ぐ。
-    if (legacyIOSCommandRecorderV815_ && window.MediaRecorder) {
-      beginVoiceRecording();
-      return;
-    }
-
+    // v8.1.6: iPhone SEも、実際に成功実績のあるV5と同じく
+    // 注文本文を Web Speech で認識する。
+    // 旧iPhoneでRecorderへ強制的に逃がす処理は廃止。
     if (!SpeechRecognitionCtor) {
       beginVoiceRecording();
       return;
@@ -1624,7 +1620,9 @@
         setState(
           "listening",
           "LISTENING",
-          "ご用件をどうぞ"
+          legacyIOSCommandRecorderV815_
+            ? "音声を聞いています..."
+            : "ご用件をどうぞ"
         );
       };
 
@@ -1663,8 +1661,12 @@
         finishCommandSpeechAccumulation_();
 
         var enoughRealSpeech =
-          commandSpeechDetected &&
-          commandSpeechAccumulatedMs >= 180;
+          legacyIOSCommandRecorderV815_
+            ? true
+            : (
+                commandSpeechDetected &&
+                commandSpeechAccumulatedMs >= 180
+              );
 
         var meaningful =
           isMeaningfulRecognizedText_(finalText);
@@ -1758,7 +1760,7 @@
 
         setTimeout(
           startCommandRecognitionCycle_,
-          220
+          legacyIOSCommandRecorderV815_ ? 120 : 220
         );
       };
 
@@ -2051,7 +2053,7 @@
       // bootstrapを一度取りこぼしてAPI OFFLINE表示になっていても、
       // 実際のAPI応答が成功したらオンライン表示へ復帰。
       document.getElementById("onlineText").textContent =
-        "SYSTEM ONLINE V8.1.5";
+        "SYSTEM ONLINE V8.1.6";
 
       setState(
         "complete",
@@ -2363,7 +2365,7 @@
           voiceEnabled ? "ON" : "OFF";
 
         document.getElementById("onlineText").textContent =
-          data.apiReady ? "SYSTEM ONLINE V8.1.5" : "API KEY NEEDED";
+          data.apiReady ? "SYSTEM ONLINE V8.1.6" : "API KEY NEEDED";
 
         if (SpeechRecognitionCtor) {
           document.getElementById("clapLabel").textContent =
@@ -2977,7 +2979,7 @@
     var transcript = String(result.normalizedTranscript || result.transcript || "").trim();
     showMessage(transcript ? ("認識：" + transcript + "\n\n" + message) : message);
 
-    document.getElementById("onlineText").textContent = "SYSTEM ONLINE V8.1.5";
+    document.getElementById("onlineText").textContent = "SYSTEM ONLINE V8.1.6";
     if (ok) setState("complete", "COMPLETE", "ORDER TURBO");
     else setState("error", "ERROR", result.resultUnknown ? "RESULT UNKNOWN" : "注文内容を確認してください");
 
