@@ -475,7 +475,7 @@
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V8.1.4</div>
+      <div class="online-text" id="onlineText">BOOTING V8.1.5</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -626,6 +626,20 @@
     window.SpeechRecognition ||
     window.webkitSpeechRecognition ||
     null;
+
+  // v8.1.5: iPhone SE / iOS15系では、ウェイクワードだけWeb Speechを使い、
+  // 「はい」の後の注文本文は、初期版で実績のある MediaRecorder + GAS文字起こしへ固定する。
+  // v8.1.4に残っていたVAD判定で、正しく認識した注文まで無音扱いになる問題を回避する。
+  function detectIOSMajorVersionV815_() {
+    var ua = String(navigator.userAgent || "");
+    if (!/(iPhone|iPad|iPod)/i.test(ua)) return 0;
+    var m = ua.match(/OS\s+(\d+)[_\.](\d+)/i);
+    return m ? (parseInt(m[1], 10) || 0) : 0;
+  }
+
+  var iosMajorVersionV815_ = detectIOSMajorVersionV815_();
+  var legacyIOSCommandRecorderV815_ =
+    iosMajorVersionV815_ > 0 && iosMajorVersionV815_ <= 15;
 
   var recognition = null;
   var recognitionRunning = false;
@@ -1476,6 +1490,14 @@
     commandDeadlineTimer =
       setTimeout(cancelCommandForSilence_, 10000);
 
+    // iPhone SE / iOS15系は、ウェイクワード認識はWeb Speechのまま。
+    // ただし注文本文はRecorderへ直行する。これで「ジャービス」→「はい」→注文の
+    // 以前の安定経路を復活させ、10秒後の無音キャンセルを防ぐ。
+    if (legacyIOSCommandRecorderV815_ && window.MediaRecorder) {
+      beginVoiceRecording();
+      return;
+    }
+
     if (!SpeechRecognitionCtor) {
       beginVoiceRecording();
       return;
@@ -1845,6 +1867,14 @@
         return;
       }
 
+      // 有効な音声を録音できた時点で「無音10秒タイマー」は役目を終える。
+      // 文字起こし/GAS処理が10秒を超えても、途中でSTANDBYへ戻さない。
+      if (commandDeadlineTimer) {
+        clearTimeout(commandDeadlineTimer);
+        commandDeadlineTimer = null;
+      }
+      commandModeActive = false;
+
       var blob = new Blob(recordedChunks, { type: actualMime });
       sendAudioBlob(blob, actualMime);
     };
@@ -1863,21 +1893,29 @@
   function monitorVoiceRecording(metrics) {
     var now = Date.now();
     var elapsed = now - recordingStartedAt;
-    var voiceThreshold = Math.max(0.028, noiseFloor * 1.65);
+
+    // 古いiPhoneはAudioContextのRMSが低めに出ることがあるため、
+    // 初期版に近い軽い判定へ戻す。商品・卓・Actionの安全判定はGAS側で行う。
+    var voiceThreshold = legacyIOSCommandRecorderV815_
+      ? Math.max(0.014, noiseFloor * 1.20)
+      : Math.max(0.028, noiseFloor * 1.65);
+
+    var endSilenceMs = legacyIOSCommandRecorderV815_ ? 500 : END_SILENCE_MS;
+    var noSpeechMs = legacyIOSCommandRecorderV815_ ? 3200 : NO_SPEECH_TIMEOUT_MS;
 
     if (metrics.rms >= voiceThreshold) {
       speechDetected = true;
       silenceStartedAt = 0;
-    } else if (speechDetected && elapsed > 650) {
+    } else if (speechDetected && elapsed > 450) {
       if (!silenceStartedAt) silenceStartedAt = now;
 
-      if (now - silenceStartedAt >= END_SILENCE_MS) {
+      if (now - silenceStartedAt >= endSilenceMs) {
         stopVoiceRecording();
         return;
       }
     }
 
-    if (!speechDetected && elapsed >= NO_SPEECH_TIMEOUT_MS) {
+    if (!speechDetected && elapsed >= noSpeechMs) {
       stopVoiceRecording();
       return;
     }
@@ -2013,7 +2051,7 @@
       // bootstrapを一度取りこぼしてAPI OFFLINE表示になっていても、
       // 実際のAPI応答が成功したらオンライン表示へ復帰。
       document.getElementById("onlineText").textContent =
-        "SYSTEM ONLINE V8.1.4";
+        "SYSTEM ONLINE V8.1.5";
 
       setState(
         "complete",
@@ -2325,7 +2363,7 @@
           voiceEnabled ? "ON" : "OFF";
 
         document.getElementById("onlineText").textContent =
-          data.apiReady ? "SYSTEM ONLINE V8.1.4" : "API KEY NEEDED";
+          data.apiReady ? "SYSTEM ONLINE V8.1.5" : "API KEY NEEDED";
 
         if (SpeechRecognitionCtor) {
           document.getElementById("clapLabel").textContent =
@@ -2579,7 +2617,7 @@
 
 
   // =========================================================
-  // SERINA JARVIS v8.1.4 ORDER TURBO
+  // SERINA JARVIS v8.1.5 ORDER TURBO
   // - V5.4で実績のあるiPhone SE音声経路をそのまま使用
   // - 全コマンドをORDER FASTへ固定。Web検索/一般AIは呼ばない
   // - 20秒の適応タイムアウト + OperationID LOOKUP回復
@@ -2939,7 +2977,7 @@
     var transcript = String(result.normalizedTranscript || result.transcript || "").trim();
     showMessage(transcript ? ("認識：" + transcript + "\n\n" + message) : message);
 
-    document.getElementById("onlineText").textContent = "SYSTEM ONLINE V8.1.4";
+    document.getElementById("onlineText").textContent = "SYSTEM ONLINE V8.1.5";
     if (ok) setState("complete", "COMPLETE", "ORDER TURBO");
     else setState("error", "ERROR", result.resultUnknown ? "RESULT UNKNOWN" : "注文内容を確認してください");
 
