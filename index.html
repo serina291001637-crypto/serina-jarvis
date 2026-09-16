@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#02070b">
-  <title>JARVIS | SERINA</title>
+  <title>JARVIS ORDER TURBO | SERINA</title>
 
   <style>
     * {
@@ -475,7 +475,7 @@
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V8.1.2</div>
+      <div class="online-text" id="onlineText">BOOTING V8.1.4</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -550,7 +550,7 @@
 
   <div class="setting-block">
     <div class="setting-line">
-      <span>拍手感度</span>
+      <span>音声感度</span>
       <span id="sensitivityText">6</span>
     </div>
     <input id="sensitivity" type="range" min="1" max="10" value="6" oninput="changeSensitivity()">
@@ -593,9 +593,6 @@
   var state = "offline";
   var busy = false;
   var voiceEnabled = true;
-
-  // ORDER FAST LANE
-  var orderPendingUntil = 0;
   var clapEnabled = true;
   var sensitivity = 6;
   var micReady = false;
@@ -629,20 +626,6 @@
     window.SpeechRecognition ||
     window.webkitSpeechRecognition ||
     null;
-
-  // v8.1.2 iPhone SE wake-word restore:
-  // 旧バージョンV5でiPhone SEでも実績があったため、iOSのバージョンだけで
-  // Web Speechを無効化しない。webkitSpeechRecognition が存在する端末では
-  // まず「ジャービス」常時待機を試し、権限/サービス拒否のような
-  // ハードエラーの時だけ MediaRecorder + GAS文字起こしへ退避する。
-  var browserSpeechUnavailableV811_ = false;
-
-  function shouldUseRecorderVoiceV811_() {
-    return (
-      !SpeechRecognitionCtor ||
-      browserSpeechUnavailableV811_
-    );
-  }
 
   var recognition = null;
   var recognitionRunning = false;
@@ -799,18 +782,15 @@
         setState(
           "standby",
           "STANDBY",
-          shouldUseRecorderVoiceV811_()
-            ? "マイクボタンから音声入力できます"
-            : "「ジャービス」と呼んでください"
+          SpeechRecognitionCtor
+            ? "「ジャービス」と呼んでください"
+            : "マイクボタンから音声入力できます"
         );
 
         loadBootstrap();
 
-        if (!shouldUseRecorderVoiceV811_()) {
+        if (SpeechRecognitionCtor) {
           setTimeout(startWakeWordRecognition_, 450);
-        } else {
-          document.getElementById("clapLabel").textContent =
-            "VOICE INPUT: MIC BUTTON";
         }
       }, 1150);
     });
@@ -1241,7 +1221,7 @@
 
   function startWakeWordRecognition_() {
     if (
-      shouldUseRecorderVoiceV811_() ||
+      !SpeechRecognitionCtor ||
       !micReady ||
       state !== "standby" ||
       busy ||
@@ -1303,16 +1283,9 @@
           errorName === "not-allowed" ||
           errorName === "service-not-allowed"
         ) {
-          browserSpeechUnavailableV811_ = true;
           document.getElementById("stateSub").textContent =
-            "音声認識の許可を確認してください。マイクボタンも使用できます。";
-          document.getElementById("clapLabel").textContent =
-            "VOICE INPUT: MIC BUTTON";
-          return;
+            "ウェイクワード利用不可。マイクボタンを使用してください。";
         }
-
-        // V5互換: no-speech / aborted / network / audio-capture は
-        // 端末非対応と決めつけない。onendでウェイク待機を再起動する。
       };
 
       wakeRecognition.onend = function() {
@@ -1321,8 +1294,7 @@
         if (
           state === "standby" &&
           !busy &&
-          !commandModeActive &&
-          !shouldUseRecorderVoiceV811_()
+          !commandModeActive
         ) {
           wakeRestartTimer =
             setTimeout(startWakeWordRecognition_, 600);
@@ -1504,7 +1476,7 @@
     commandDeadlineTimer =
       setTimeout(cancelCommandForSilence_, 10000);
 
-    if (shouldUseRecorderVoiceV811_()) {
+    if (!SpeechRecognitionCtor) {
       beginVoiceRecording();
       return;
     }
@@ -1612,7 +1584,7 @@
     if (
       !commandModeActive ||
       recognitionRunning ||
-      shouldUseRecorderVoiceV811_()
+      !SpeechRecognitionCtor
     ) {
       return;
     }
@@ -1735,18 +1707,20 @@
           errorName === "not-allowed" ||
           errorName === "service-not-allowed"
         ) {
-          browserSpeechUnavailableV811_ = true;
-          recognitionFallbackStarted = true;
-          recognitionRunning = false;
-          beginVoiceRecording();
-          return;
-        }
+          if (commandDeadlineTimer) {
+            clearTimeout(commandDeadlineTimer);
+            commandDeadlineTimer = null;
+          }
 
-        if (errorName === "audio-capture") {
-          // 一時的なマイク競合は端末非対応扱いにせず、今回だけ録音へ退避。
-          recognitionFallbackStarted = true;
-          recognitionRunning = false;
-          beginVoiceRecording();
+          commandModeActive = false;
+
+          setState(
+            "error",
+            "MIC ERROR",
+            "音声認識のマイク権限を確認してください。"
+          );
+
+          setTimeout(returnToStandby, 1700);
         }
       };
 
@@ -1889,11 +1863,7 @@
   function monitorVoiceRecording(metrics) {
     var now = Date.now();
     var elapsed = now - recordingStartedAt;
-    var voiceThreshold = shouldUseRecorderVoiceV811_()
-      ? Math.max(0.012, noiseFloor * 1.35)
-      : Math.max(0.028, noiseFloor * 1.65);
-    var endSilenceMsV811_ = shouldUseRecorderVoiceV811_() ? 950 : END_SILENCE_MS;
-    var noSpeechTimeoutMsV811_ = shouldUseRecorderVoiceV811_() ? 4000 : NO_SPEECH_TIMEOUT_MS;
+    var voiceThreshold = Math.max(0.028, noiseFloor * 1.65);
 
     if (metrics.rms >= voiceThreshold) {
       speechDetected = true;
@@ -1901,13 +1871,13 @@
     } else if (speechDetected && elapsed > 650) {
       if (!silenceStartedAt) silenceStartedAt = now;
 
-      if (now - silenceStartedAt >= endSilenceMsV811_) {
+      if (now - silenceStartedAt >= END_SILENCE_MS) {
         stopVoiceRecording();
         return;
       }
     }
 
-    if (!speechDetected && elapsed >= noSpeechTimeoutMsV811_) {
+    if (!speechDetected && elapsed >= NO_SPEECH_TIMEOUT_MS) {
       stopVoiceRecording();
       return;
     }
@@ -1989,19 +1959,6 @@
     if (!text || busy) return;
 
     input.value = "";
-
-    // v8.1.2: Web Speechが本当に使えない端末でも、入力欄の「はい/いいえ」を
-    // pending OperationIDへ正しく送る。通常の新規コマンドには流さない。
-    if (v81ConfirmPending && (isYesConfirmationV81_(text) || isNoConfirmationV81_(text) || isRepeatConfirmationV81_(text))) {
-      sendConfirmationAnswerV81_(text);
-      return;
-    }
-
-    if (v81ConfirmPending) {
-      v81ConfirmPending = null;
-      stopConfirmationModeV81_(true);
-    }
-
     sendCommand(text, "TEXT");
   };
 
@@ -2016,101 +1973,25 @@
   }
 
 
-  function isLikelyOrderFastClient_(text) {
-    var s =
-      normalizeRestaurantVoiceTranscriptClient_(
-        String(text || "").trim()
-      );
-
-    if (!s) return false;
-
-    // 数量だけの続きは、直前に注文保留がある時だけFASTへ。
-    if (
-      Date.now() < orderPendingUntil &&
-      /^[0-9０-９一二三四五六七八九十]+\s*(?:点|つ|個|皿|人前|枚)?(?:で|です|お願い|お願いします|追加|入れて)?[!！。．.]?$/.test(s)
-    ) {
-      return true;
-    }
-
-    if (
-      /(オーダー|注文|未提供|未完了|提供済|完了|終了|終わり|入ります|入れます|入れて|追加|取り消|取消|キャンセル|調理|未調理|上がった|上がり|戻して)/.test(s)
-    ) {
-      return true;
-    }
-
-    // 「1卓に餃子」まで語尾が落ち、
-    // さらに1卓が「自宅 / 食卓」等に誤認識されたケースも救済。
-    if (
-      /(?:食卓|自宅|三宅(?:様|さん)?|委託|お得|[0-7]\s*(?:宅|択|たく|タク))(?=.*(?:に|へ|の))/.test(s) &&
-      !/(天気|天候|ニュース|検索|調べ)/.test(s)
-    ) {
-      return true;
-    }
-
-    // 卓番号を含む発話は、天気・Web質問でない限り注文系を優先。
-    if (
-      /(?:座[1-3]|[0-7]\s*(?:卓|テーブル)|(?:卓|テーブル)\s*[0-7])/.test(s) &&
-      !/(天気|天候|ニュース|検索|調べ)/.test(s)
-    ) {
-      return true;
-    }
-
-    return false;
-  }
-
-
   function sendCommand(text, inputType) {
     if (!text || busy) return;
 
     busy = true;
-
-    var normalizedClientText =
-      normalizeRestaurantVoiceTranscriptClient_(
-        String(text || "").trim()
-      );
-
-    var orderFast =
-      isLikelyOrderFastClient_(
-        normalizedClientText
-      );
-
-    showMessage(
-      normalizedClientText
-    );
-
-    if (orderFast) {
-      setState(
-        "processing",
-        "ORDER FAST",
-        "注文システムへ最短経路で送信中..."
-      );
-    } else {
-      setState(
-        "processing",
-        "PROCESSING",
-        "指示を処理しています..."
-      );
-    }
+    showMessage(text);
+    setState("processing", "PROCESSING", "指示を処理しています...");
 
     apiRequest(
-      orderFast
-        ? "order_fast"
-        : "command",
+      "command",
       {
-        text:
-          normalizedClientText,
-        deviceId:
-          deviceId,
-        inputType:
-          inputType || "TEXT"
+        text: text,
+        deviceId: deviceId,
+        inputType: inputType || "TEXT"
       },
       function(result) {
         busy = false;
         handleResult(result);
       },
-      orderFast
-        ? 12000
-        : 30000
+      30000
     );
   }
 
@@ -2128,48 +2009,23 @@
       showMessage(message);
     }
 
-    if (result.pendingOrder === true) {
-      orderPendingUntil =
-        Date.now() +
-        Number(
-          result.pendingTtlSec || 90
-        ) * 1000;
-    } else if (
-      result.fastLane === true &&
-      result.action !== "ADD_ORDER_PENDING"
-    ) {
-      orderPendingUntil = 0;
-    }
-
     if (ok) {
+      // bootstrapを一度取りこぼしてAPI OFFLINE表示になっていても、
+      // 実際のAPI応答が成功したらオンライン表示へ復帰。
       document.getElementById("onlineText").textContent =
-        "SYSTEM ONLINE V8.1.2";
+        "SYSTEM ONLINE V8.1.4";
 
       setState(
         "complete",
         "COMPLETE",
-        result.fastLane === true
-          ? "ORDER FAST"
-          : (
-            result.mode === "fast"
-              ? "FAST COMMAND"
-              : "JARVIS RESPONSE"
-          )
+        result.mode === "fast" ? "FAST COMMAND" : "JARVIS RESPONSE"
       );
     } else {
       setState("error", "ERROR", "処理を確認してください");
     }
 
-    // ORDER FAST直後はbootstrapを走らせない。
-    // 追加のGAS実行が次の注文操作と競合するのを防ぐ。
-    if (
-      result.refreshStats &&
-      result.fastLane !== true
-    ) {
-      setTimeout(
-        loadBootstrap,
-        650
-      );
+    if (result.refreshStats) {
+      setTimeout(loadBootstrap, 250);
     }
 
     if (voiceEnabled && (result.speak || message)) {
@@ -2242,10 +2098,7 @@
       callback,
       Number(
         timeoutMs || 30000
-      ),
-      action === "order_fast"
-        ? 300
-        : 500
+      )
     );
 
     fetch(
@@ -2318,13 +2171,8 @@
   function pollRequestResult_(
     requestId,
     callback,
-    timeoutMs,
-    pollIntervalMs
+    timeoutMs
   ) {
-    pollIntervalMs =
-      Number(
-        pollIntervalMs || 500
-      );
     var startedAt = Date.now();
     var finished = false;
 
@@ -2349,9 +2197,8 @@
       if (Date.now() - startedAt > timeoutMs) {
         finish({
           success: false,
-          errorCode: "JARVIS_POLL_TIMEOUT",
-          transportTimeout: true,
-          message: "JARVIS GASとの通信がタイムアウトしました。"
+          message:
+            "JARVIS GASとの通信がタイムアウトしました。"
         });
         return;
       }
@@ -2407,16 +2254,16 @@
             document.getElementById("stateSub").textContent =
               "GAS処理中... " + pollCount;
           }
-          setTimeout(poll, pollIntervalMs);
+          setTimeout(poll, 350);
           return;
         }
 
-        setTimeout(poll, pollIntervalMs);
+        setTimeout(poll, 500);
       };
 
       script.onerror = function() {
         cleanup();
-        setTimeout(poll, pollIntervalMs);
+        setTimeout(poll, 500);
       };
 
       script.async = true;
@@ -2434,7 +2281,7 @@
     }
 
     // POST送信とほぼ同時に確認開始
-    setTimeout(poll, 80);
+    setTimeout(poll, 120);
   }
 
 
@@ -2478,7 +2325,7 @@
           voiceEnabled ? "ON" : "OFF";
 
         document.getElementById("onlineText").textContent =
-          data.apiReady ? "SYSTEM ONLINE V8.1" : "API KEY NEEDED";
+          data.apiReady ? "SYSTEM ONLINE V8.1.4" : "API KEY NEEDED";
 
         if (SpeechRecognitionCtor) {
           document.getElementById("clapLabel").textContent =
@@ -2522,7 +2369,7 @@
 
     if (newState === "standby") {
       document.getElementById("clapLabel").textContent =
-        !shouldUseRecorderVoiceV811_()
+        SpeechRecognitionCtor
           ? "WAKE WORD: JARVIS"
           : "VOICE BUTTON READY";
     }
@@ -2543,7 +2390,7 @@
       "standby",
       "STANDBY",
       subText ||
-        (!shouldUseRecorderVoiceV811_()
+        (SpeechRecognitionCtor
           ? "「ジャービス」と呼んでください"
           : "マイクボタンから音声入力できます")
     );
@@ -2551,11 +2398,11 @@
     setTimeout(function() {
       if (state === "standby") {
         document.getElementById("stateSub").textContent =
-          !shouldUseRecorderVoiceV811_()
+          SpeechRecognitionCtor
             ? "「ジャービス」と呼んでください"
             : "マイクボタンから音声入力できます";
 
-        if (!shouldUseRecorderVoiceV811_()) {
+        if (SpeechRecognitionCtor) {
           startWakeWordRecognition_();
         }
       }
@@ -2730,342 +2577,143 @@
     loadBootstrap();
   };
 
+
   // =========================================================
-  // SERINA JARVIS GitHub UI v8.1 / Protocol 8.1
-  // - 0.9秒 multi-final buffer
-  // - 10秒 confirmation mode（wake word不要）
-  // - OperationID維持 / timeout lookup recovery
+  // SERINA JARVIS v8.1.4 ORDER TURBO
+  // - V5.4で実績のあるiPhone SE音声経路をそのまま使用
+  // - 全コマンドをORDER FASTへ固定。Web検索/一般AIは呼ばない
+  // - 20秒の適応タイムアウト + OperationID LOOKUP回復
+  // - 大口/取消など確認が必要な時だけ10秒確認モード
   // =========================================================
 
-  var V81_FINAL_SILENCE_MS = 900;
-  var V81_CONFIRM_TIMEOUT_MS = 10000;
-  var V81_LOOKUP_INTERVAL_MS = 1500;
+  var V814_ORDER_TIMEOUT_MS = 20000;
+  var V814_LOOKUP_TIMEOUT_MS = 8000;
+  var V814_LOOKUP_INTERVAL_MS = 1000;
+  var V814_CONFIRM_TIMEOUT_MS = 10000;
+  var v814ActiveOrder = null;
+  var v814Confirm = null;
+  var v814ConfirmTimer = null;
+  var v814ConfirmRecognition = null;
+  var v814ConfirmRunning = false;
 
-  var v81FinalParts = [];
-  var v81FinalTimer = null;
-  var v81FinalCommitStarted = false;
-
-  var v81ConfirmPending = null;
-  var v81ConfirmTimer = null;
-  var v81ConfirmRecognition = null;
-  var v81ConfirmRecognitionRunning = false;
-  var v81ConfirmRestartTimer = null;
-
-  var v81ActiveOrderRequest = null;
-
-  function makeOperationIdV81_() {
-    var base = makeSecureRequestId_();
-    return ("op_" + String(base || "").replace(/[^A-Za-z0-9_-]/g, "")).slice(0, 120);
+  function makeOperationIdV814_() {
+    var id = makeSecureRequestId_();
+    return ("op_" + String(id || "").replace(/[^A-Za-z0-9_-]/g, "")).slice(0, 120);
   }
 
-  function clearFinalBufferV81_() {
-    v81FinalParts = [];
-    v81FinalCommitStarted = false;
-    if (v81FinalTimer) {
-      clearTimeout(v81FinalTimer);
-      v81FinalTimer = null;
-    }
+  function isYesV814_(text) {
+    return /^(?:はい|うん|OK|ok|オーケー|お願い|お願いします|登録して|実行して|それで)[。.!！]*$/.test(String(text || "").trim());
   }
 
-  function hasExplicitTerminalV81_(text) {
-    return /(?:以上|お願いします|お願い)[。.!！]?\s*$/.test(String(text || "").trim());
+  function isNoV814_(text) {
+    return /^(?:いいえ|いや|やめて|やめる|キャンセル|なし)[。.!！]*$/.test(String(text || "").trim());
   }
 
-  function commitFinalBufferV81_() {
-    if (v81FinalCommitStarted) return;
-    var finalText = normalizeRestaurantVoiceTranscriptClient_(
-      v81FinalParts.join(" ").replace(/\s+/g, " ").trim()
-    );
-    if (!isMeaningfulRecognizedText_(finalText)) return;
-
-    v81FinalCommitStarted = true;
-    recognitionGotFinal = true;
-    commandModeActive = false;
-
-    if (commandDeadlineTimer) {
-      clearTimeout(commandDeadlineTimer);
-      commandDeadlineTimer = null;
+  function stopConfirmV814_() {
+    if (v814ConfirmTimer) {
+      clearTimeout(v814ConfirmTimer);
+      v814ConfirmTimer = null;
     }
-    if (v81FinalTimer) {
-      clearTimeout(v81FinalTimer);
-      v81FinalTimer = null;
-    }
-    if (recognition) {
-      try { recognition.stop(); } catch (ignore) {}
-    }
-    recognitionRunning = false;
-
-    setState("processing", "PROCESSING", "認識：" + finalText);
-    showMessage("認識：" + finalText);
-    clearFinalBufferV81_();
-    sendCommand(finalText, "VOICE_BROWSER");
-  }
-
-  // v8.1: 一つのfinalで即送信せず、最後のfinalから0.9秒待つ。
-  // continuous=falseを維持して古いiOSとの互換性を優先し、onend時は必要なら認識を再起動する。
-  function startCommandRecognitionCycle_() {
-    if (!commandModeActive || recognitionRunning || shouldUseRecorderVoiceV811_()) return;
-
-    try {
-      recognition = new SpeechRecognitionCtor();
-      recognition.lang = "ja-JP";
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 3;
-
-      recognition.onstart = function() {
-        recognitionRunning = true;
-        setState("listening", "LISTENING", "ご用件をどうぞ");
-      };
-
-      recognition.onresult = function(event) {
-        var added = false;
-        for (var i = event.resultIndex; i < event.results.length; i++) {
-          var result = event.results[i];
-          if (!result || !result.isFinal) continue;
-          var best = chooseBestRestaurantTranscript_(result);
-          best = normalizeRestaurantVoiceTranscriptClient_(String(best || "").trim());
-          if (!best || !isMeaningfulRecognizedText_(best)) continue;
-
-          finishCommandSpeechAccumulation_();
-          var enoughRealSpeech = commandSpeechDetected && commandSpeechAccumulatedMs >= 180;
-          if (!enoughRealSpeech) continue;
-
-          v81FinalParts.push(best);
-          added = true;
-        }
-        if (!added) return;
-
-        var joined = v81FinalParts.join(" ");
-        if (v81FinalTimer) clearTimeout(v81FinalTimer);
-
-        if (hasExplicitTerminalV81_(joined)) {
-          commitFinalBufferV81_();
-          return;
-        }
-
-        v81FinalTimer = setTimeout(commitFinalBufferV81_, V81_FINAL_SILENCE_MS);
-      };
-
-      recognition.onerror = function(event) {
-        recognitionRunning = false;
-        if (recognitionGotFinal || !commandModeActive) return;
-        var errorName = String(event && event.error ? event.error : "");
-        if (errorName === "no-speech" || errorName === "aborted") return;
-        if (
-          errorName === "not-allowed" ||
-          errorName === "service-not-allowed"
-        ) {
-          browserSpeechUnavailableV811_ = true;
-          recognitionFallbackStarted = true;
-          recognitionRunning = false;
-          beginVoiceRecording();
-          return;
-        }
-
-        if (errorName === "audio-capture") {
-          // 一時的なマイク競合は端末非対応扱いにせず、今回だけ録音へ退避。
-          recognitionFallbackStarted = true;
-          recognitionRunning = false;
-          beginVoiceRecording();
-        }
-      };
-
-      recognition.onend = function() {
-        recognitionRunning = false;
-        if (!commandModeActive || recognitionGotFinal || v81FinalCommitStarted) return;
-        // final buffer待機中でも短い続き発話を拾う。
-        setTimeout(function() {
-          if (commandModeActive && !recognitionRunning && !recognitionGotFinal) {
-            startCommandRecognitionCycle_();
-          }
-        }, 90);
-      };
-
-      recognition.start();
-    } catch (err) {
-      recognitionRunning = false;
-      if (commandModeActive && !recognitionGotFinal) {
-        setTimeout(startCommandRecognitionCycle_, 180);
-      }
-    }
-  }
-
-  function beginFastVoiceInput_() {
-    stopWakeWordRecognition_();
-    stopConfirmationModeV81_(false);
-    clearFinalBufferV81_();
-
-    commandModeActive = true;
-    commandSpeechDetected = false;
-    commandSpeechActiveSince = 0;
-    commandSpeechAccumulatedMs = 0;
-
-    if (commandDeadlineTimer) clearTimeout(commandDeadlineTimer);
-    commandDeadlineTimer = setTimeout(cancelCommandForSilence_, 10000);
-
-    if (shouldUseRecorderVoiceV811_()) {
-      beginVoiceRecording();
-      return;
-    }
-    recognitionGotFinal = false;
-    recognitionFallbackStarted = false;
-    startCommandRecognitionCycle_();
-  }
-
-  function stopConfirmationRecognitionV81_() {
-    if (v81ConfirmRestartTimer) {
-      clearTimeout(v81ConfirmRestartTimer);
-      v81ConfirmRestartTimer = null;
-    }
-    if (v81ConfirmRecognition) {
+    if (v814ConfirmRecognition) {
       try {
-        v81ConfirmRecognition.onend = null;
-        v81ConfirmRecognition.onerror = null;
-        v81ConfirmRecognition.stop();
+        v814ConfirmRecognition.onend = null;
+        v814ConfirmRecognition.onerror = null;
+        v814ConfirmRecognition.stop();
       } catch (ignore) {}
     }
-    v81ConfirmRecognition = null;
-    v81ConfirmRecognitionRunning = false;
+    v814ConfirmRecognition = null;
+    v814ConfirmRunning = false;
   }
 
-  function stopConfirmationModeV81_(clearPending) {
-    if (v81ConfirmTimer) {
-      clearTimeout(v81ConfirmTimer);
-      v81ConfirmTimer = null;
-    }
-    stopConfirmationRecognitionV81_();
-    if (clearPending !== false) v81ConfirmPending = null;
-  }
-
-  function confirmationTimeoutV81_() {
-    stopConfirmationModeV81_(true);
+  function confirmTimeoutV814_() {
+    stopConfirmV814_();
+    v814Confirm = null;
     busy = false;
-    setState("standby", "STANDBY", "確認が取れなかったため、登録していません。");
+    showMessage("確認が取れなかったため、登録していません。");
+    setState("standby", "STANDBY", "「ジャービス」と呼んでください");
     speak("確認が取れなかったため、登録していません。", function() {
-      setTimeout(returnToStandby, 300);
+      setTimeout(startWakeWordRecognition_, 250);
     });
   }
 
-  function isRepeatConfirmationV81_(text) {
-    var s = String(text || "").replace(/[ 　]/g, "");
-    return /^(もう一回|もう一度|今なんて言った|注文内容もう一回教えて|注文内容教えて)[。.!！?？]*$/.test(s) ||
-      /(注文内容|なんて言った|何て言った).*(教えて|もう一回|もう一度)/.test(s);
-  }
-
-  function isYesConfirmationV81_(text) {
-    var s = String(text || "").replace(/[ 　]/g, "");
-    return /^(はい|うん|ok|オーケー|お願い|お願いします|登録して|実行して|それで)[。.!！]*$/i.test(s);
-  }
-
-  function isNoConfirmationV81_(text) {
-    var s = String(text || "").replace(/[ 　]/g, "");
-    return /^(いいえ|いや|やめて|やめる|キャンセル|取り消さない|取消さない|なし)[。.!！]*$/.test(s);
-  }
-
-  function startConfirmationRecognitionV81_() {
-    if (!v81ConfirmPending || v81ConfirmRecognitionRunning || shouldUseRecorderVoiceV811_()) return;
+  function startConfirmRecognitionV814_() {
+    if (!v814Confirm || v814ConfirmRunning || !SpeechRecognitionCtor) return;
     try {
-      v81ConfirmRecognition = new SpeechRecognitionCtor();
-      v81ConfirmRecognition.lang = "ja-JP";
-      v81ConfirmRecognition.continuous = false;
-      v81ConfirmRecognition.interimResults = false;
-      v81ConfirmRecognition.maxAlternatives = 3;
-
-      v81ConfirmRecognition.onstart = function() {
-        v81ConfirmRecognitionRunning = true;
-        setState("listening", "CONFIRM", "「はい」「いいえ」、または新しい指示をどうぞ");
-      };
-
-      v81ConfirmRecognition.onresult = function(event) {
+      v814ConfirmRecognition = new SpeechRecognitionCtor();
+      v814ConfirmRecognition.lang = "ja-JP";
+      v814ConfirmRecognition.continuous = false;
+      v814ConfirmRecognition.interimResults = false;
+      v814ConfirmRecognition.maxAlternatives = 3;
+      v814ConfirmRecognition.onstart = function() { v814ConfirmRunning = true; };
+      v814ConfirmRecognition.onresult = function(event) {
         var text = "";
         for (var i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i] && event.results[i].isFinal) {
-            text += chooseBestRestaurantTranscript_(event.results[i]);
-          }
+          var r = event.results[i];
+          if (!r || !r.isFinal) continue;
+          text += chooseBestRestaurantTranscript_(r);
         }
         text = normalizeRestaurantVoiceTranscriptClient_(String(text || "").trim());
-        if (!isMeaningfulRecognizedText_(text) && !isYesConfirmationV81_(text) && !isNoConfirmationV81_(text)) return;
-
-        stopConfirmationRecognitionV81_();
-        if (v81ConfirmTimer) {
-          clearTimeout(v81ConfirmTimer);
-          v81ConfirmTimer = null;
-        }
-
-        if (isYesConfirmationV81_(text) || isNoConfirmationV81_(text) || isRepeatConfirmationV81_(text)) {
-          sendConfirmationAnswerV81_(text);
+        if (!text) return;
+        stopConfirmV814_();
+        if (isYesV814_(text) || isNoV814_(text)) {
+          sendConfirmV814_(text);
           return;
         }
-
-        // 別の意味ある命令: 旧確認は破棄し、新しいOperationとして最初から処理。
-        v81ConfirmPending = null;
+        // 別命令なら古い確認を捨て、新しいOperationとして扱う。
+        v814Confirm = null;
         busy = false;
         sendCommand(text, "VOICE_BROWSER");
       };
-
-      v81ConfirmRecognition.onerror = function(event) {
-        v81ConfirmRecognitionRunning = false;
-        var name = String(event && event.error ? event.error : "");
-        if (name === "not-allowed" || name === "service-not-allowed") {
-          document.getElementById("stateSub").textContent = "確認音声を利用できません。画面のマイクを使用してください。";
+      v814ConfirmRecognition.onerror = function() { v814ConfirmRunning = false; };
+      v814ConfirmRecognition.onend = function() {
+        v814ConfirmRunning = false;
+        if (v814Confirm && v814ConfirmTimer) {
+          setTimeout(startConfirmRecognitionV814_, 120);
         }
       };
-
-      v81ConfirmRecognition.onend = function() {
-        v81ConfirmRecognitionRunning = false;
-        if (!v81ConfirmPending || !v81ConfirmTimer) return;
-        v81ConfirmRestartTimer = setTimeout(startConfirmationRecognitionV81_, 100);
-      };
-      v81ConfirmRecognition.start();
+      v814ConfirmRecognition.start();
     } catch (err) {
-      v81ConfirmRecognitionRunning = false;
-      if (v81ConfirmPending && v81ConfirmTimer) {
-        v81ConfirmRestartTimer = setTimeout(startConfirmationRecognitionV81_, 250);
-      }
+      v814ConfirmRunning = false;
+      if (v814Confirm && v814ConfirmTimer) setTimeout(startConfirmRecognitionV814_, 250);
     }
   }
 
-  function beginConfirmationModeV81_(result) {
+  function beginConfirmV814_(result) {
     stopWakeWordRecognition_();
-    stopConfirmationModeV81_(false);
-    v81ConfirmPending = {
+    stopConfirmV814_();
+    v814Confirm = {
       operationId: String(result.operationId || ""),
-      confirmationText: String(result.confirmationText || result.message || "確認しますか？"),
-      pendingSummary: String(result.pendingSummary || "")
+      text: String(result.confirmationText || result.message || "この内容で実行しますか？")
     };
-
-    // Timer is intentionally started AFTER TTS completes.
-    speak(v81ConfirmPending.confirmationText, function() {
-      if (!v81ConfirmPending) return;
-      setState("listening", "CONFIRM", "10秒以内にお答えください");
-      v81ConfirmTimer = setTimeout(confirmationTimeoutV81_, V81_CONFIRM_TIMEOUT_MS);
-      startConfirmationRecognitionV81_();
+    busy = false;
+    setState("processing", "CONFIRM", "確認内容を読み上げます");
+    showMessage(v814Confirm.text);
+    speak(v814Confirm.text, function() {
+      if (!v814Confirm) return;
+      setState("listening", "CONFIRM", "10秒以内に「はい」または「いいえ」");
+      v814ConfirmTimer = setTimeout(confirmTimeoutV814_, V814_CONFIRM_TIMEOUT_MS);
+      startConfirmRecognitionV814_();
     });
   }
 
-  function sendConfirmationAnswerV81_(text) {
-    if (!v81ConfirmPending || busy) return;
-    var pending = v81ConfirmPending;
+  function sendConfirmV814_(answer) {
+    if (!v814Confirm || busy) return;
+    var pending = v814Confirm;
     busy = true;
     setState("processing", "CONFIRMING", "確認内容を処理しています...");
-
     apiRequest(
       "order_confirm",
-      {
-        operationId: pending.operationId,
-        answer: text,
-        deviceId: deviceId
-      },
+      { operationId: pending.operationId, answer: answer, deviceId: deviceId },
       function(result) {
         busy = false;
+        v814Confirm = null;
         handleResult(result);
       },
-      15000
+      V814_ORDER_TIMEOUT_MS
     );
   }
 
-  function makeUnknownResultV81_() {
+  function makeUnknownV814_() {
     return {
       success: false,
       resultUnknown: true,
@@ -3075,71 +2723,50 @@
     };
   }
 
-  function recoverOrderTimeoutV81_(ctx) {
+  function recoverTimeoutV814_(ctx) {
     if (!ctx || !ctx.operationId) {
       busy = false;
-      handleResult(makeUnknownResultV81_());
+      handleResult(makeUnknownV814_());
       return;
     }
-
-    setState("processing", "VERIFYING", "注文状況を確認しています。");
-    showMessage("注文状況を確認しています。");
-
+    setState("processing", "VERIFYING", "注文状況を確認しています...");
     var attempt = 0;
     var allNotFound = true;
 
-    function finishUnknown() {
+    function finish(result) {
       busy = false;
-      handleResult(makeUnknownResultV81_());
+      handleResult(result || makeUnknownV814_());
     }
 
-    function finishFromLookup(result) {
-      busy = false;
-      if (result && result.bridgeState === "SUCCESS") {
-        result.success = true;
-        result.message = result.message || "登録済みです。";
-        result.speak = result.message;
-      }
-      handleResult(result);
-    }
-
-    function lookupNext() {
+    function lookup() {
       attempt++;
       apiRequest(
         "order_lookup",
         { operationId: ctx.operationId, deviceId: deviceId },
         function(result) {
           var st = String(result && result.bridgeState || "");
-
           if (st === "SUCCESS" || st === "SHADOW_OK" || st === "FAILED_ZERO_WRITE" || st === "ABORTED" || st === "OPERATION_CONFLICT") {
-            finishFromLookup(result);
+            if (st === "SUCCESS" || st === "SHADOW_OK") result.success = true;
+            finish(result);
             return;
           }
-
-          if (st === "RECOVERY_REQUIRED") {
-            allNotFound = false;
-            resendOriginal(true);
-            return;
-          }
-
           if (st !== "NOT_FOUND") allNotFound = false;
-
-          if (attempt < 4) {
-            setTimeout(lookupNext, V81_LOOKUP_INTERVAL_MS);
+          if (st === "RECOVERY_REQUIRED") {
+            resend();
             return;
           }
-
-          if (allNotFound) {
-            resendOriginal(false);
-          } else {
-            finishUnknown();
+          if (attempt < 4) {
+            setTimeout(lookup, V814_LOOKUP_INTERVAL_MS);
+            return;
           }
+          if (allNotFound) resend();
+          else finish(makeUnknownV814_());
         },
-        9000
+        V814_LOOKUP_TIMEOUT_MS
       );
     }
 
-    function resendOriginal(isRecovery) {
+    function resend() {
       apiRequest(
         "order_fast",
         {
@@ -3149,166 +2776,230 @@
           operationId: ctx.operationId
         },
         function(result) {
-          if (!(result && result.errorCode === "JARVIS_POLL_TIMEOUT")) {
-            busy = false;
-            handleResult(result);
+          if (result && result.errorCode === "JARVIS_POLL_TIMEOUT") {
+            finish(makeUnknownV814_());
             return;
           }
-
-          var postLookupCount = 0;
-          function postLookup() {
-            postLookupCount++;
-            apiRequest(
-              "order_lookup",
-              { operationId: ctx.operationId, deviceId: deviceId },
-              function(lr) {
-                var st = String(lr && lr.bridgeState || "");
-                if (st === "SUCCESS" || st === "SHADOW_OK" || st === "FAILED_ZERO_WRITE" || st === "ABORTED" || st === "OPERATION_CONFLICT") {
-                  finishFromLookup(lr);
-                  return;
-                }
-                if (postLookupCount < 2) {
-                  setTimeout(postLookup, V81_LOOKUP_INTERVAL_MS);
-                } else {
-                  finishUnknown();
-                }
-              },
-              9000
-            );
-          }
-          setTimeout(postLookup, V81_LOOKUP_INTERVAL_MS);
+          finish(result);
         },
-        12000
+        V814_ORDER_TIMEOUT_MS
       );
     }
 
-    lookupNext();
+    lookup();
   }
 
-  function sendCommand(text, inputType, forcedOperationId) {
+  // 全入力を注文専用FASTへ。Web/一般AIへは送らない。
+  function sendCommand(text, inputType) {
     if (!text || busy) return;
+    stopConfirmV814_();
+    v814Confirm = null;
 
-    stopConfirmationModeV81_(true);
+    var normalized = normalizeRestaurantVoiceTranscriptClient_(String(text || "").trim());
+    if (!normalized) return;
+
     busy = true;
+    var opId = makeOperationIdV814_();
+    v814ActiveOrder = {
+      operationId: opId,
+      text: normalized,
+      inputType: inputType || "TEXT"
+    };
 
-    var normalizedClientText = normalizeRestaurantVoiceTranscriptClient_(String(text || "").trim());
-    var orderFast = isLikelyOrderFastClient_(normalizedClientText);
-    showMessage(normalizedClientText);
+    showMessage(normalized);
+    setState("processing", "ORDER TURBO", "卓番・商品・状態を確認中...");
 
-    if (orderFast) {
-      var opId = String(forcedOperationId || makeOperationIdV81_());
-      v81ActiveOrderRequest = {
-        operationId: opId,
-        text: normalizedClientText,
-        inputType: inputType || "TEXT"
-      };
-      setState("processing", "ORDER FAST 8.1", "注文システムへ送信中...");
+    apiRequest(
+      "order_fast",
+      {
+        text: normalized,
+        deviceId: deviceId,
+        inputType: inputType || "TEXT",
+        operationId: opId
+      },
+      function(result) {
+        if (result && result.errorCode === "JARVIS_POLL_TIMEOUT") {
+          recoverTimeoutV814_(v814ActiveOrder);
+          return;
+        }
+        busy = false;
+        handleResult(result);
+      },
+      V814_ORDER_TIMEOUT_MS
+    );
+  }
+
+  // 録音フォールバックも一般AIではなく注文専用文字起こしへ。
+  function sendAudioBlob(blob, mimeType) {
+    busy = true;
+    setState("processing", "PROCESSING", "音声を認識しています...");
+    var reader = new FileReader();
+    reader.onloadend = function() {
+      var dataUrl = String(reader.result || "");
+      var comma = dataUrl.indexOf(",");
+      var base64 = comma >= 0 ? dataUrl.substring(comma + 1) : "";
+      if (!base64) {
+        busy = false;
+        handleResult({ success:false, message:"音声データを読み取れませんでした。" });
+        return;
+      }
+      var opId = makeOperationIdV814_();
+      v814ActiveOrder = { operationId:opId, text:"[audio]", inputType:"VOICE" };
       apiRequest(
-        "order_fast",
+        "audio_order",
         {
-          text: normalizedClientText,
+          audioBase64: base64,
+          mimeType: mimeType || blob.type || "audio/mp4",
           deviceId: deviceId,
-          inputType: inputType || "TEXT",
           operationId: opId
         },
         function(result) {
           if (result && result.errorCode === "JARVIS_POLL_TIMEOUT") {
-            recoverOrderTimeoutV81_(v81ActiveOrderRequest);
+            busy = false;
+            handleResult(makeUnknownV814_());
             return;
           }
           busy = false;
           handleResult(result);
         },
-        12000
+        30000
       );
-      return;
+    };
+    reader.onerror = function() {
+      busy = false;
+      handleResult({ success:false, message:"音声データの読み込みに失敗しました。" });
+    };
+    reader.readAsDataURL(blob);
+  }
+
+  // poll timeoutに明示コードを付ける。結果が出た瞬間に終了するので20秒待つわけではない。
+  function pollRequestResult_(requestId, callback, timeoutMs) {
+    var startedAt = Date.now();
+    var finished = false;
+    var pollCount = 0;
+
+    function finish(result) {
+      if (finished) return;
+      finished = true;
+      callback(result);
     }
 
-    v81ActiveOrderRequest = null;
-    setState("processing", "PROCESSING", "指示を処理しています...");
-    apiRequest(
-      "command",
-      { text: normalizedClientText, deviceId: deviceId, inputType: inputType || "TEXT" },
-      function(result) {
-        busy = false;
-        handleResult(result);
-      },
-      30000
-    );
+    function poll() {
+      if (finished) return;
+      pollCount++;
+      if (state === "processing") {
+        document.getElementById("stateSub").textContent = "処理中... " + pollCount;
+      }
+      if (Date.now() - startedAt > Number(timeoutMs || 20000)) {
+        finish({
+          success:false,
+          errorCode:"JARVIS_POLL_TIMEOUT",
+          message:"注文処理が継続中です。結果を確認します。"
+        });
+        return;
+      }
+      var callbackName = "__jarvisPoll_" + requestId.replace(/[^A-Za-z0-9_$]/g, "");
+      var script = document.createElement("script");
+      var cleaned = false;
+      function cleanup() {
+        if (cleaned) return;
+        cleaned = true;
+        try { if (script.parentNode) script.parentNode.removeChild(script); } catch (ignore) {}
+        try { delete window[callbackName]; } catch (ignore2) { window[callbackName] = undefined; }
+      }
+      window[callbackName] = function(packet) {
+        packet = packet || {};
+        cleanup();
+        if (packet.ready === true) {
+          acknowledgeRequestResult_(requestId);
+          finish(packet.result || { success:false, message:"GASから空の応答が返りました。" });
+          return;
+        }
+        setTimeout(poll, packet.processing === true ? 250 : 350);
+      };
+      script.onerror = function() { cleanup(); setTimeout(poll, 400); };
+      script.async = true;
+      script.src = GAS_URL + "?api=poll&requestId=" + encodeURIComponent(requestId) + "&callback=" + encodeURIComponent(callbackName) + "&_=" + Date.now();
+      document.head.appendChild(script);
+    }
+    setTimeout(poll, 100);
   }
 
   function handleResult(result) {
     result = result || {};
-
     if (result.confirmationRequired === true) {
-      busy = false;
-      var confirmMessage = String(result.confirmationText || result.message || "この内容で実行しますか？");
-      showMessage(confirmMessage);
-      setState("processing", "CONFIRM", "確認内容を読み上げます");
-      beginConfirmationModeV81_(result);
+      beginConfirmV814_(result);
       return;
     }
 
-    stopConfirmationModeV81_(true);
-
+    stopConfirmV814_();
+    v814Confirm = null;
     var ok = result.success === true;
     var message = String(result.message || "応答を取得できませんでした。");
     var transcript = String(result.normalizedTranscript || result.transcript || "").trim();
+    showMessage(transcript ? ("認識：" + transcript + "\n\n" + message) : message);
 
-    if (transcript) showMessage("認識：" + transcript + "\n\n" + message);
-    else showMessage(message);
+    document.getElementById("onlineText").textContent = "SYSTEM ONLINE V8.1.4";
+    if (ok) setState("complete", "COMPLETE", "ORDER TURBO");
+    else setState("error", "ERROR", result.resultUnknown ? "RESULT UNKNOWN" : "注文内容を確認してください");
 
-    document.getElementById("onlineText").textContent = "SYSTEM ONLINE V8.1";
-
-    if (ok) {
-      setState("complete", "COMPLETE", result.shadow === true ? "SHADOW TEST" : (result.fastLane === true ? "ORDER FAST 8.1" : "JARVIS RESPONSE"));
+    // 統計の再取得は注文直後に行わない。次のウェイクワード復帰を優先。
+    var voice = String(result.speak || message);
+    if (voiceEnabled && voice) {
+      speak(voice, function() { setTimeout(returnToStandby, 120); });
     } else {
-      setState("error", "ERROR", result.resultUnknown ? "RESULT UNKNOWN" : "処理を確認してください");
-    }
-
-    if (result.refreshStats && result.fastLane !== true) {
-      setTimeout(loadBootstrap, 650);
-    }
-
-    if (voiceEnabled && (result.speak || message)) {
-      speak(String(result.speak || message), function() {
-        setTimeout(returnToStandby, 260);
-      });
-    } else {
-      setTimeout(returnToStandby, 1100);
+      setTimeout(returnToStandby, 350);
     }
   }
 
-  // v8.1 safety: a pending 0.9s final timer must never survive a 10s silence timeout
-  // or a return to standby. This prevents a delayed order send after the UI has already
-  // announced that nothing was registered.
-  var cancelCommandForSilenceBaseV81_ = cancelCommandForSilence_;
-  cancelCommandForSilence_ = function() {
-    clearFinalBufferV81_();
-    return cancelCommandForSilenceBaseV81_.apply(this, arguments);
+  // TTSを少し速く。内容はCore側で短文化する。
+  function speak(text, done) {
+    if (!("speechSynthesis" in window) || !text) { if (done) done(); return; }
+    window.speechSynthesis.cancel();
+    var utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "ja-JP";
+    utterance.rate = 1.16;
+    utterance.pitch = 0.92;
+    utterance.volume = 1;
+    var finished = false;
+    function finish() { if (finished) return; finished = true; if (done) done(); }
+    utterance.onend = finish;
+    utterance.onerror = finish;
+    window.speechSynthesis.speak(utterance);
+    setTimeout(finish, Math.max(1800, String(text).length * 115));
+  }
+
+  // 起動時にUIを注文専用モードとして明示。
+  var loadBootstrapBaseV814_ = loadBootstrap;
+  loadBootstrap = function() {
+    loadBootstrapBaseV814_();
+    document.getElementById("onlineText").textContent = "ORDER TURBO V8.1.4";
   };
 
-  var returnToStandbyBaseV81_ = returnToStandby;
-  returnToStandby = function(subText) {
-    clearFinalBufferV81_();
-    return returnToStandbyBaseV81_.call(this, subText);
-  };
 
-  // Manual button while confirmation is active = confirmation listening restart, not normal wake flow.
-  window.manualListen = function() {
-    if (busy) return;
-    if (v81ConfirmPending) {
-      if (shouldUseRecorderVoiceV811_()) {
-        setState("listening", "CONFIRM", "旧iPhoneでは確認時のみ入力欄へ「はい」「いいえ」と入力してください");
-        var confirmInput = document.getElementById("textInput");
-        if (confirmInput) {
-          confirmInput.value = "";
-          try { confirmInput.focus(); } catch (ignore) {}
-        }
+  // Confirmation fallback: text input / mic button also work on old iPhone.
+  window.manualSend = function() {
+    var input = document.getElementById("textInput");
+    var text = String(input.value || "").trim();
+    if (!text || busy) return;
+    input.value = "";
+    if (v814Confirm) {
+      if (isYesV814_(text) || isNoV814_(text)) {
+        stopConfirmV814_();
+        sendConfirmV814_(text);
         return;
       }
-      stopConfirmationRecognitionV81_();
-      startConfirmationRecognitionV81_();
+      stopConfirmV814_();
+      v814Confirm = null;
+    }
+    sendCommand(text, "TEXT");
+  };
+
+  window.manualListen = function() {
+    if (busy) return;
+    if (v814Confirm) {
+      stopConfirmV814_();
+      startConfirmRecognitionV814_();
       return;
     }
     if (state === "offline") {
