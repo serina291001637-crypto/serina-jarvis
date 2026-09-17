@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#02070b">
-  <title>JARVIS LIVE ORDER 8.2.1 | SERINA</title>
+  <title>JARVIS LIVE ORDER 8.2.3 | SERINA</title>
 
   <style>
     * {
@@ -475,7 +475,7 @@
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V8.2.2.1</div>
+      <div class="online-text" id="onlineText">BOOTING V8.2.3.1</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -1544,7 +1544,7 @@
     if (!s) return "";
 
     var orderContext =
-      /(入ります|入れます|入れて|追加|注文|オーダー|未提供|未完了|完了|終了|確認)/.test(s);
+      /(入ります|入れます|入れて|追加|注文|オーダー|未提供|未完了|調理|提供|完了|終了|終わ|確認|状況|残り|教えて|戻して)/.test(s);
 
     if (!orderContext) {
       return s;
@@ -1565,6 +1565,12 @@
     s = s.replace(
       /(?:委託|お得)(?=\s|$|[にのではをがへ、。,.!！?？])/g,
       "6卓"
+    );
+
+    // GPT / Web Speech can output 卓 as 択・宅.  Apply only in order context.
+    s = v823NumText_(s).replace(
+      /([0-6])\s*(?:択|宅|たく|タク)(?=\s|$|[にのではをがへ、。,.!！?？])/g,
+      "$1卓"
     );
 
     return s;
@@ -2092,7 +2098,7 @@
       // bootstrapを一度取りこぼしてAPI OFFLINE表示になっていても、
       // 実際のAPI応答が成功したらオンライン表示へ復帰。
       document.getElementById("onlineText").textContent =
-        "SYSTEM ONLINE V8.2.2";
+        "SYSTEM ONLINE V8.2.3";
 
       setState(
         "complete",
@@ -2406,7 +2412,7 @@
         try { onBootstrapV82_(data); } catch (bootErrV82) {}
 
         document.getElementById("onlineText").textContent =
-          data.apiReady ? (liveReadyV82_ ? "LIVE READY V8.2.2" : "SYSTEM ONLINE V8.2.2") : "API KEY NEEDED";
+          data.apiReady ? (liveReadyV82_ ? "LIVE READY V8.2.3" : "SYSTEM ONLINE V8.2.3") : "API KEY NEEDED";
 
         if (SpeechRecognitionCtor) {
           document.getElementById("clapLabel").textContent =
@@ -3028,7 +3034,7 @@
     var transcript = String(result.normalizedTranscript || result.transcript || "").trim();
     showMessage(transcript ? ("認識：" + transcript + "\n\n" + message) : message);
 
-    document.getElementById("onlineText").textContent = "SYSTEM ONLINE V8.2.2";
+    document.getElementById("onlineText").textContent = "SYSTEM ONLINE V8.2.3";
     if (ok) setState("complete", "COMPLETE", "ORDER TURBO");
     else setState("error", "ERROR", result.resultUnknown ? "RESULT UNKNOWN" : "注文内容を確認してください");
 
@@ -3062,7 +3068,7 @@
   var loadBootstrapBaseV814_ = loadBootstrap;
   loadBootstrap = function() {
     loadBootstrapBaseV814_();
-    document.getElementById("onlineText").textContent = liveReadyV82_ ? "LIVE READY V8.2.2" : "LIVE ORDER V8.2.1";
+    document.getElementById("onlineText").textContent = liveReadyV82_ ? "LIVE READY V8.2.3" : "LIVE ORDER V8.2.1";
   };
   window.loadBootstrap = loadBootstrap;
 
@@ -3187,6 +3193,7 @@
       "日本語の中華料理店『芹菜』の注文オペレーション音声です。聞こえた発話を省略せず文字起こししてください。",
       "最重要: 卓番号を推測・補完・変更しない。卓番号候補は " + (tables.length ? tables.join("、") : "0卓、1卓、2卓、3卓、4卓、5卓、6卓、座1卓、座2卓、座3卓") + "。",
       "特に卓番号・数量・商品名を保持する。数字を別の数字へ推測変換しない。",
+      "卓番号の読みは、0卓=ぜろたく、1卓=いったく、2卓=にたく、3卓=さんたく、4卓=よんたく、5卓=ごたく、6卓=ろくたく。『たく』は択・宅ではなく卓として文字に残す。",
       "注文操作語: 追加、入れて、注文、オーダー、調理済、調理完了、未調理に戻して、提供済、提供完了、完了、注文確認、オーダー確認。",
       "店内の商品名と読み: " + pairs.join("、") + "。",
       aliasPairs.length ? ("音声上の別名: " + aliasPairs.join("、") + "。") : "",
@@ -3195,7 +3202,7 @@
   }
 
   // =====================================================
-  // v8.2.2 PRELOADED MENU DICTIONARY
+  // v8.2.3 PRELOADED MENU + TABLE DICTIONARY
   // GPT Live = speech-to-text only.
   // Menu / VoiceAliases / Tables = authoritative local correction dictionary.
   // Do NOT guess a table number. Product correction is accepted only when unique.
@@ -3275,6 +3282,151 @@
     return liveIndexV822_;
   }
 
+
+  // =====================================================
+  // v8.2.3 TABLE DICTIONARY
+  // Tables preload is the whitelist.  GPT Live may output homophones such as
+  // 「二択」「三宅」「にたく」; normalize only when a single valid table is
+  // identifiable.  Never invent a table from a bare quantity number.
+  // =====================================================
+  function v823NumText_(value) {
+    var s = String(value == null ? "" : value);
+    try { s = s.normalize("NFKC"); } catch (ignore) {}
+    var map = {"〇":"0","零":"0","一":"1","二":"2","三":"3","四":"4","五":"5","六":"6","七":"7","八":"8","九":"9"};
+    Object.keys(map).forEach(function(k){ s = s.split(k).join(map[k]); });
+    return s;
+  }
+
+  function v823CanonTable_(value) {
+    var s = v823NumText_(value).replace(/\s+/g,"").trim();
+    if (!s) return "";
+    if (/テイクアウト/.test(s)) return "テイクアウト";
+    s = s.replace(/座敷|座席/g,"座");
+    var z = s.match(/^座([1-3])(?:卓|テーブル)?$/);
+    if (z) return "座" + z[1] + "卓";
+    var m = s.match(/^([0-9]+)(?:番)?(?:卓|テーブル)?$/);
+    if (m) return String(Number(m[1])) + "卓";
+    return s;
+  }
+
+  function v823ResolveTableFromPreload_(canonical) {
+    var idx = liveIndexV822_ || buildLocalMenuIndexV822_();
+    var tables = idx && Array.isArray(idx.tables) ? idx.tables : [];
+    var wanted = v823CanonTable_(canonical);
+    var i, actual;
+    for (i=0; i<tables.length; i++) {
+      actual = String(tables[i] || "");
+      if (v823CanonTable_(actual) === wanted) return actual;
+    }
+    // If preload is temporarily unavailable, keep the restaurant's known safe
+    // fallback set.  The server still revalidates against Tables before write.
+    if (/^[0-6]卓$/.test(wanted) || /^座[1-3]卓$/.test(wanted) || wanted === "テイクアウト") {
+      return wanted;
+    }
+    return "";
+  }
+
+  function v823CollectTableHits_(rawText) {
+    var original = String(rawText || "");
+    var s = v823NumText_(original);
+    var hits = [];
+    var seenSpan = {};
+
+    function add(re, makeCanon, kind) {
+      var m;
+      re.lastIndex = 0;
+      while ((m = re.exec(s)) !== null) {
+        var raw = String(m[0] || "");
+        var canon = typeof makeCanon === "function" ? makeCanon(m) : String(makeCanon || "");
+        var actual = v823ResolveTableFromPreload_(canon);
+        if (actual) {
+          var key = String(m.index) + ":" + String(m.index + raw.length) + ":" + actual;
+          if (!seenSpan[key]) {
+            seenSpan[key] = true;
+            hits.push({
+              raw: raw,
+              start: m.index,
+              end: m.index + raw.length,
+              table: actual,
+              kind: kind || "EXACT"
+            });
+          }
+        }
+        // Safety for zero-length regexes.
+        if (m[0] === "") re.lastIndex++;
+      }
+    }
+
+    // Strong explicit table forms first.
+    add(/テイクアウト/g, "テイクアウト", "TAKEOUT");
+    add(/(?:座敷|座席|座)\s*([1-3])\s*(?:番)?\s*(?:卓|テーブル)?/g, function(m){ return "座" + m[1] + "卓"; }, "ZASHIKI");
+    add(/([0-6])\s*(?:番)?\s*(?:卓|テーブル|宅|択|たく|タク)/g, function(m){ return m[1] + "卓"; }, "TABLE_FORM");
+    add(/(?:卓|テーブル)\s*([0-6])/g, function(m){ return m[1] + "卓"; }, "TABLE_REVERSED");
+
+    // Common kana / homophone outputs from speech recognition.
+    add(/(?:ぜろたく|ゼロタク|れいたく|レイタク)/g, "0卓", "PHONETIC");
+    add(/(?:いったく|イッタク)/g, "1卓", "PHONETIC");
+    add(/(?:にたく|ニタク)/g, "2卓", "PHONETIC");
+    add(/(?:さんたく|サンタク)/g, "3卓", "PHONETIC");
+    add(/(?:よんたく|ヨンタク)/g, "4卓", "PHONETIC");
+    add(/(?:ごたく|ゴタク)/g, "5卓", "PHONETIC");
+    add(/(?:ろくたく|ロクタク)/g, "6卓", "PHONETIC");
+
+    // Historically observed substitutions. Apply only in restaurant command context.
+    var orderContext = /(追加|入れて|注文|オーダー|調理|未調理|提供|完了|終了|終わ|確認|状況|未提供|残り|残って|教えて|入って|戻して)/.test(s);
+    if (orderContext) {
+      add(/(?:食卓|自宅)/g, "1卓", "KNOWN_CONFUSION");
+      add(/(?:三宅(?:様|さん)?)/g, "3卓", "KNOWN_CONFUSION");
+      add(/(?:委託|お得)/g, "6卓", "KNOWN_CONFUSION");
+    }
+
+    hits.sort(function(a,b){
+      if (a.start !== b.start) return a.start - b.start;
+      return (b.end - b.start) - (a.end - a.start);
+    });
+    return hits;
+  }
+
+  function correctTableTranscriptV823_(rawText) {
+    var raw = String(rawText || "").replace(/\s+/g," ").trim();
+    if (!raw) return {text:"", changed:false, table:"", ambiguous:false, hits:[]};
+
+    var hits = v823CollectTableHits_(raw);
+    if (!hits.length) return {text:raw, changed:false, table:"", ambiguous:false, hits:[]};
+
+    var unique = {};
+    var tables = [];
+    var i;
+    for (i=0; i<hits.length; i++) {
+      var t = String(hits[i].table || "");
+      if (t && !unique[t]) { unique[t] = true; tables.push(t); }
+    }
+
+    // Two different table candidates in one speech turn are not safe for a
+    // single-table command. Leave untouched and let Core clarify.
+    if (tables.length > 1) {
+      return {text:raw, changed:false, table:"", ambiguous:true, tables:tables, hits:hits};
+    }
+
+    var selected = hits[0];
+    var canonical = tables[0] || "";
+    if (!canonical) return {text:raw, changed:false, table:"", ambiguous:false, hits:hits};
+
+    // If it is already the canonical spelling, no rewrite is required.
+    var before = raw.substring(0, selected.start);
+    var after = raw.substring(selected.end);
+    var rewritten = before + canonical + after;
+
+    return {
+      text: rewritten,
+      changed: rewritten !== raw,
+      table: canonical,
+      ambiguous:false,
+      hit:selected,
+      hits:hits
+    };
+  }
+
   function v822ExtractProductPhrase_(text) {
     var s=String(text||"");
     // Table phrases and known speech confusions are removed only from product-search text.
@@ -3315,17 +3467,40 @@
   function correctLiveTranscriptV822_(rawText) {
     var raw=String(rawText||"").replace(/\s+/g," ").trim();
     if(!raw) return {text:"",raw:"",changed:false};
-    var s=normalizeRestaurantVoiceTranscriptClient_(raw);
+
+    // Table first: this preserves the table token while product extraction
+    // removes table words from the candidate phrase.
+    var tableFix = correctTableTranscriptV823_(raw);
+    if (tableFix.ambiguous) {
+      return {
+        text:raw,
+        raw:raw,
+        changed:false,
+        tableAmbiguous:true,
+        tableFix:tableFix,
+        product:null,
+        match:null
+      };
+    }
+
+    var s=normalizeRestaurantVoiceTranscriptClient_(String(tableFix.text || raw));
     var match=v822FindProduct_(s);
     if(match.product && match.product.name) {
       var phrase=String(match.phrase||"");
       if(phrase && phrase!==String(match.product.name)) {
-        // Replace only the extracted product phrase. Never rewrite the table number here.
         var pos=s.indexOf(phrase);
         if(pos>=0) s=s.substring(0,pos)+String(match.product.name)+s.substring(pos+phrase.length);
       }
     }
-    return {text:s,raw:raw,changed:s!==raw,product:match.product||null,match:match};
+    return {
+      text:s,
+      raw:raw,
+      changed:s!==raw,
+      table:String(tableFix.table||""),
+      tableFix:tableFix,
+      product:match.product||null,
+      match:match
+    };
   }
 
   function waitIceCompleteV82_(pc, done) {
@@ -3374,7 +3549,7 @@
     if (liveReadyV82_) return;
     liveReadyV82_ = true;
     liveConnectingV82_ = false;
-    document.getElementById("onlineText").textContent = "LIVE READY V8.2.2";
+    document.getElementById("onlineText").textContent = "LIVE READY V8.2.3";
     document.getElementById("clapLabel").textContent = "WAKE WORD + GPT LIVE";
     sendLiveEventV82_({
       type: "session.instructions.append",
@@ -3431,7 +3606,7 @@
     if (!sourceTrack) return;
 
     liveConnectingV82_ = true;
-    document.getElementById("onlineText").textContent = "LIVE WARMING V8.2.2";
+    document.getElementById("onlineText").textContent = "LIVE WARMING V8.2.3";
 
     try {
       var pc = new RTCPeerConnection();
@@ -3474,7 +3649,7 @@
                 if (livePcV82_ !== pc) return;
                 if (!result || result.success !== true || !result.answerSdp) {
                   closeLiveV82_(true);
-                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V8.2.2";
+                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V8.2.3";
                   return;
                 }
                 pc.setRemoteDescription({type:"answer", sdp:String(result.answerSdp)}).catch(function(){
@@ -3530,13 +3705,28 @@
         return;
       }
       var correctedV822 = correctLiveTranscriptV822_(text);
-      var commandTextV822 = String(correctedV822.text || text).trim();
-      setState("processing", "LIVE TRANSCRIBED", "Menu辞書で照合して高速処理しています...");
-      if (correctedV822.changed) {
-        showMessage("GPT認識：" + text + "\n辞書補正：" + commandTextV822);
-      } else {
-        showMessage("認識：" + commandTextV822);
+
+      if (correctedV822.tableAmbiguous) {
+        var ambTables = correctedV822.tableFix && correctedV822.tableFix.tables
+          ? correctedV822.tableFix.tables.join(" / ")
+          : "";
+        setState("error", "TABLE CHECK", "卓番号が競合しました。もう一度、卓番号から話してください。");
+        showMessage("GPT認識：" + text + (ambTables ? "\n卓候補：" + ambTables : ""));
+        speak("卓番号を正確に聞き取れませんでした。卓番号からもう一度お願いします。", function(){
+          setTimeout(returnToStandby, 250);
+        });
+        return;
       }
+
+      var commandTextV822 = String(correctedV822.text || text).trim();
+      setState("processing", "LIVE TRANSCRIBED", "Tables / Menu辞書で照合して高速処理しています...");
+
+      var lines = ["GPT認識：" + text];
+      if (correctedV822.table) lines.push("卓判定：" + correctedV822.table);
+      if (correctedV822.changed) lines.push("辞書補正：" + commandTextV822);
+      else lines.push("認識確定：" + commandTextV822);
+      showMessage(lines.join("\n"));
+
       sendCommand(commandTextV822, "VOICE_LIVE");
     }, hardTimeout ? 120 : 260);
   }
