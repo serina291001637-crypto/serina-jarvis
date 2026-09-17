@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#02070b">
-  <title>JARVIS LIVE ORDER | SERINA</title>
+  <title>JARVIS LIVE ORDER 8.2.1 | SERINA</title>
 
   <style>
     * {
@@ -475,7 +475,7 @@
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V8.2</div>
+      <div class="online-text" id="onlineText">BOOTING V8.2.1</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -949,6 +949,13 @@
     // v5: STANDBY中は拍手を使わずウェイクワードで起動。
     if (state === "standby") {
       return;
+    }
+
+    // v8.2.1: GPT Live中は端末側VADも併用。
+    // Transcript deltaの間隔だけで文末判定すると「2卓に」で途中確定することがあるため、
+    // 実際の発話終了（無音650ms）を優先する。
+    if (liveListeningV82_) {
+      monitorLiveSpeechV821_(metrics);
     }
 
     // 実際に人が声を出したかをAudioContext側でも確認。
@@ -2085,7 +2092,7 @@
       // bootstrapを一度取りこぼしてAPI OFFLINE表示になっていても、
       // 実際のAPI応答が成功したらオンライン表示へ復帰。
       document.getElementById("onlineText").textContent =
-        "SYSTEM ONLINE V8.2";
+        "SYSTEM ONLINE V8.2.1";
 
       setState(
         "complete",
@@ -2399,7 +2406,7 @@
         try { onBootstrapV82_(data); } catch (bootErrV82) {}
 
         document.getElementById("onlineText").textContent =
-          data.apiReady ? (liveReadyV82_ ? "LIVE READY V8.2" : "SYSTEM ONLINE V8.2") : "API KEY NEEDED";
+          data.apiReady ? (liveReadyV82_ ? "LIVE READY V8.2.1" : "SYSTEM ONLINE V8.2.1") : "API KEY NEEDED";
 
         if (SpeechRecognitionCtor) {
           document.getElementById("clapLabel").textContent =
@@ -3021,7 +3028,7 @@
     var transcript = String(result.normalizedTranscript || result.transcript || "").trim();
     showMessage(transcript ? ("認識：" + transcript + "\n\n" + message) : message);
 
-    document.getElementById("onlineText").textContent = "SYSTEM ONLINE V8.2";
+    document.getElementById("onlineText").textContent = "SYSTEM ONLINE V8.2.1";
     if (ok) setState("complete", "COMPLETE", "ORDER TURBO");
     else setState("error", "ERROR", result.resultUnknown ? "RESULT UNKNOWN" : "注文内容を確認してください");
 
@@ -3055,7 +3062,7 @@
   var loadBootstrapBaseV814_ = loadBootstrap;
   loadBootstrap = function() {
     loadBootstrapBaseV814_();
-    document.getElementById("onlineText").textContent = liveReadyV82_ ? "LIVE READY V8.2" : "LIVE ORDER V8.2";
+    document.getElementById("onlineText").textContent = liveReadyV82_ ? "LIVE READY V8.2.1" : "LIVE ORDER V8.2.1";
   };
   window.loadBootstrap = loadBootstrap;
 
@@ -3111,6 +3118,9 @@
   var livePcV82_ = null;
   var liveDcV82_ = null;
   var liveTrackV82_ = null;
+  var liveSenderV821_ = null;
+  var liveSpeechSeenV821_ = false;
+  var liveSilenceSinceV821_ = 0;
   var liveReadyV82_ = false;
   var liveConnectingV82_ = false;
   var liveListeningV82_ = false;
@@ -3122,7 +3132,8 @@
   var liveLastDeltaAtV82_ = 0;
   var liveStartedAtV82_ = 0;
   var V82_DELTA_QUIET_MS = 850;
-  var V82_HARD_LISTEN_MS = 7500;
+  var V82_HARD_LISTEN_MS = 8000;
+  var V821_LOCAL_END_SILENCE_MS = 650;
 
   function v82SafeJsonParse_(s) {
     try { return JSON.parse(String(s || "")); } catch (e) { return null; }
@@ -3200,10 +3211,12 @@
     liveListeningV82_ = false;
     if (liveFinalizeTimerV82_) { clearTimeout(liveFinalizeTimerV82_); liveFinalizeTimerV82_ = null; }
     if (liveHardTimerV82_) { clearTimeout(liveHardTimerV82_); liveHardTimerV82_ = null; }
+    try { if (liveSenderV821_) liveSenderV821_.replaceTrack(null); } catch (ignore0) {}
     try { if (liveTrackV82_) liveTrackV82_.stop(); } catch (ignore1) {}
     try { if (liveDcV82_) liveDcV82_.close(); } catch (ignore2) {}
     try { if (livePcV82_) livePcV82_.close(); } catch (ignore3) {}
     liveTrackV82_ = null;
+    liveSenderV821_ = null;
     liveDcV82_ = null;
     livePcV82_ = null;
     if (scheduleReconnect && micReady && state === "standby") {
@@ -3221,7 +3234,7 @@
     if (liveReadyV82_) return;
     liveReadyV82_ = true;
     liveConnectingV82_ = false;
-    document.getElementById("onlineText").textContent = "LIVE READY V8.2";
+    document.getElementById("onlineText").textContent = "LIVE READY V8.2.1";
     document.getElementById("clapLabel").textContent = "WAKE WORD + GPT LIVE";
     sendLiveEventV82_({
       type: "session.instructions.append",
@@ -3255,19 +3268,19 @@
       liveTranscriptV82_ += delta;
       liveLastDeltaAtV82_ = Date.now();
       showMessage("認識中：" + String(liveTranscriptV82_).trim());
-      scheduleLiveFinalizeV82_(V82_DELTA_QUIET_MS);
-      if (/以上[。！!]?\s*$/.test(liveTranscriptV82_)) scheduleLiveFinalizeV82_(160);
+      // v8.2.1: delta間隔では確定しない。発話終了VADを待つ。
+      if (/以上[。！!]?\s*$/.test(liveTranscriptV82_)) scheduleLiveFinalizeV82_(300);
       return;
     }
 
     if (type === "conversation.item.input_audio_transcription.completed" || type === "transcription.completed") {
       if (msg.transcript) liveTranscriptV82_ = String(msg.transcript);
-      if (liveListeningV82_) scheduleLiveFinalizeV82_(180);
+      if (liveListeningV82_) scheduleLiveFinalizeV82_(380);
       return;
     }
 
     if (type === "input_audio_buffer.speech_stopped" || type === "input_audio.speech_stopped") {
-      if (liveListeningV82_ && liveTranscriptV82_.trim()) scheduleLiveFinalizeV82_(250);
+      if (liveListeningV82_ && liveTranscriptV82_.trim()) scheduleLiveFinalizeV82_(450);
     }
   }
 
@@ -3278,15 +3291,20 @@
     if (!sourceTrack) return;
 
     liveConnectingV82_ = true;
-    document.getElementById("onlineText").textContent = "LIVE WARMING V8.2";
+    document.getElementById("onlineText").textContent = "LIVE WARMING V8.2.1";
 
     try {
       var pc = new RTCPeerConnection();
       livePcV82_ = pc;
-      var clone = sourceTrack.clone();
-      clone.enabled = false;
-      liveTrackV82_ = clone;
-      pc.addTrack(clone, new MediaStream([clone]));
+
+      // v8.2.1 IMPORTANT:
+      // STANDBY中にmicStreamのcloneをWebRTCへ保持すると、iOS15 Safariで
+      // Web Speechのウェイクワード認識と競合することがある。
+      // そのため起動時は「空のsendonly audio transceiver」だけでLiveを温め、
+      // 「ジャービス」を検出した後にだけ実マイクtrackをreplaceTrackする。
+      var transceiver = pc.addTransceiver("audio", { direction: "sendonly" });
+      liveSenderV821_ = transceiver.sender;
+      liveTrackV82_ = null;
 
       var dc = pc.createDataChannel("oai-events");
       liveDcV82_ = dc;
@@ -3316,7 +3334,7 @@
                 if (livePcV82_ !== pc) return;
                 if (!result || result.success !== true || !result.answerSdp) {
                   closeLiveV82_(true);
-                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V8.2";
+                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V8.2.1";
                   return;
                 }
                 pc.setRemoteDescription({type:"answer", sdp:String(result.answerSdp)}).catch(function(){
@@ -3340,7 +3358,11 @@
 
   function stopLiveListenV82_(keepConnection) {
     liveListeningV82_ = false;
-    if (liveTrackV82_) liveTrackV82_.enabled = false;
+    liveSpeechSeenV821_ = false;
+    liveSilenceSinceV821_ = 0;
+    try { if (liveSenderV821_) liveSenderV821_.replaceTrack(null); } catch (ignore0) {}
+    try { if (liveTrackV82_) liveTrackV82_.stop(); } catch (ignore1) {}
+    liveTrackV82_ = null;
     if (liveFinalizeTimerV82_) { clearTimeout(liveFinalizeTimerV82_); liveFinalizeTimerV82_ = null; }
     if (liveHardTimerV82_) { clearTimeout(liveHardTimerV82_); liveHardTimerV82_ = null; }
     if (!keepConnection) closeLiveV82_(true);
@@ -3349,8 +3371,12 @@
   function finalizeLiveTranscriptV82_(hardTimeout) {
     if (!liveListeningV82_) return;
     // Disable media first, then allow a short tail window for the final transcript delta.
-    if (liveTrackV82_) liveTrackV82_.enabled = false;
+    try { if (liveSenderV821_) liveSenderV821_.replaceTrack(null); } catch (ignore0) {}
+    try { if (liveTrackV82_) liveTrackV82_.stop(); } catch (ignore1) {}
+    liveTrackV82_ = null;
     liveListeningV82_ = false;
+    liveSpeechSeenV821_ = false;
+    liveSilenceSinceV821_ = 0;
     if (liveFinalizeTimerV82_) { clearTimeout(liveFinalizeTimerV82_); liveFinalizeTimerV82_ = null; }
     if (liveHardTimerV82_) { clearTimeout(liveHardTimerV82_); liveHardTimerV82_ = null; }
 
@@ -3369,17 +3395,65 @@
     }, hardTimeout ? 120 : 260);
   }
 
+  function monitorLiveSpeechV821_(metrics) {
+    if (!liveListeningV82_) return;
+    var now = Date.now();
+    var rms = Number(metrics && metrics.rms || 0);
+    var threshold = legacyIOSCommandRecorderV815_
+      ? Math.max(0.013, noiseFloor * 1.18)
+      : Math.max(0.020, noiseFloor * 1.45);
+
+    if (rms >= threshold) {
+      liveSpeechSeenV821_ = true;
+      liveSilenceSinceV821_ = 0;
+      return;
+    }
+
+    if (liveSpeechSeenV821_) {
+      if (!liveSilenceSinceV821_) liveSilenceSinceV821_ = now;
+      if (now - liveSilenceSinceV821_ >= V821_LOCAL_END_SILENCE_MS) {
+        // Transcriptの末尾deltaが届く猶予を確保してから確定。
+        scheduleLiveFinalizeV82_(360);
+        liveSpeechSeenV821_ = false;
+        liveSilenceSinceV821_ = 0;
+      }
+    }
+  }
+
   function startLiveOrderV82_() {
-    if (!liveReadyV82_ || !liveTrackV82_ || !liveDcV82_ || liveDcV82_.readyState !== "open") return false;
+    if (!liveReadyV82_ || !liveSenderV821_ || !liveDcV82_ || liveDcV82_.readyState !== "open") return false;
+    var sourceTrack = micStream && micStream.getAudioTracks && micStream.getAudioTracks()[0];
+    if (!sourceTrack) return false;
+
     commandModeActive = true;
     liveTranscriptV82_ = "";
     liveLastDeltaAtV82_ = 0;
     liveStartedAtV82_ = Date.now();
+    liveSpeechSeenV821_ = false;
+    liveSilenceSinceV821_ = 0;
     liveListeningV82_ = true;
     if (commandDeadlineTimer) { clearTimeout(commandDeadlineTimer); commandDeadlineTimer = null; }
     setState("listening", "GPT LIVE", "ご用件をどうぞ");
     showMessage("");
-    try { liveTrackV82_.enabled = true; } catch (e) { liveListeningV82_ = false; return false; }
+
+    try {
+      var clone = sourceTrack.clone();
+      clone.enabled = true;
+      liveTrackV82_ = clone;
+      var rp = liveSenderV821_.replaceTrack(clone);
+      if (rp && typeof rp.catch === "function") {
+        rp.catch(function(){
+          if (liveListeningV82_) {
+            stopLiveListenV82_(true);
+            beginFastVoiceInputBaseV82_();
+          }
+        });
+      }
+    } catch (e) {
+      liveListeningV82_ = false;
+      return false;
+    }
+
     liveHardTimerV82_ = setTimeout(function(){ finalizeLiveTranscriptV82_(true); }, V82_HARD_LISTEN_MS);
     return true;
   }
