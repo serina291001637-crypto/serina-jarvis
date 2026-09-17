@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#02070b">
-  <title>JARVIS ORDER TURBO | SERINA</title>
+  <title>JARVIS LIVE ORDER | SERINA</title>
 
   <style>
     * {
@@ -475,7 +475,7 @@
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V8.1.6</div>
+      <div class="online-text" id="onlineText">BOOTING V8.2</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -627,7 +627,7 @@
     window.webkitSpeechRecognition ||
     null;
 
-  // v8.1.6: iPhone SE / iOS15系は、実績のあったV5方式へ戻す。
+  // v8.1.7: iPhone SEはV5方式を維持しつつ、Web Speechの複数候補をORDER COREへ送って再評価する。
   // ウェイクワードも注文本文も Web Speech を使用する。
   // 旧iPhoneではAudioContextのVAD判定を注文送信の必須条件にしない。
   // MediaRecorder は Web Speech 自体が無い端末だけのフォールバック。
@@ -1343,7 +1343,7 @@
     playActivateTone();
 
     speakShort("はい", function() {
-      setTimeout(beginFastVoiceInput_, 320);
+      setTimeout(beginFastVoiceInput_, legacyIOSCommandRecorderV815_ ? 600 : 320);
     });
   }
 
@@ -1598,6 +1598,26 @@
   }
 
 
+
+  function collectRestaurantAlternativesV817_(result) {
+    var list = [];
+    var seen = {};
+    if (!result || !result.length) return list;
+
+    for (var i = 0; i < result.length && i < 5; i++) {
+      var alt = result[i];
+      if (!alt || !alt.transcript) continue;
+      var text = normalizeRestaurantVoiceTranscriptClient_(String(alt.transcript || "").trim());
+      if (!text || seen[text]) continue;
+      seen[text] = true;
+      list.push({
+        text: text,
+        confidence: Number(alt.confidence || 0)
+      });
+    }
+    return list;
+  }
+
   function startCommandRecognitionCycle_() {
     if (
       !commandModeActive ||
@@ -1612,7 +1632,8 @@
       recognition.lang = "ja-JP";
       recognition.continuous = false;
       recognition.interimResults = false;
-      recognition.maxAlternatives = 3;
+      // v8.1.7: iPhone SEの1候補決め打ちをやめ、複数候補を取得。
+      recognition.maxAlternatives = 5;
 
       recognition.onstart = function() {
         recognitionRunning = true;
@@ -1628,6 +1649,8 @@
 
       recognition.onresult = function(event) {
         var finalText = "";
+        var speechAlternativesV817 = [];
+        var speechSeenV817 = {};
 
         for (
           var i = event.resultIndex;
@@ -1640,14 +1663,17 @@
             result &&
             result.isFinal
           ) {
-            var bestTranscript =
-              chooseBestRestaurantTranscript_(
-                result
-              );
-
-            if (bestTranscript) {
-              finalText += bestTranscript;
+            var alternatives = collectRestaurantAlternativesV817_(result);
+            for (var a = 0; a < alternatives.length; a++) {
+              var candidate = alternatives[a];
+              if (!speechSeenV817[candidate.text]) {
+                speechSeenV817[candidate.text] = true;
+                speechAlternativesV817.push(candidate);
+              }
             }
+
+            var bestTranscript = chooseBestRestaurantTranscript_(result);
+            if (bestTranscript) finalText += bestTranscript;
           }
         }
 
@@ -1655,6 +1681,11 @@
           normalizeRestaurantVoiceTranscriptClient_(
             String(finalText || "").trim()
           );
+
+        if (finalText && !speechSeenV817[finalText]) {
+          speechAlternativesV817.unshift({text:finalText, confidence:0});
+        }
+        if (speechAlternativesV817.length > 5) speechAlternativesV817 = speechAlternativesV817.slice(0,5);
 
         if (!finalText) return;
 
@@ -1700,7 +1731,8 @@
 
         sendCommand(
           finalText,
-          "VOICE_BROWSER"
+          "VOICE_BROWSER",
+          speechAlternativesV817
         );
       };
 
@@ -2053,7 +2085,7 @@
       // bootstrapを一度取りこぼしてAPI OFFLINE表示になっていても、
       // 実際のAPI応答が成功したらオンライン表示へ復帰。
       document.getElementById("onlineText").textContent =
-        "SYSTEM ONLINE V8.1.6";
+        "SYSTEM ONLINE V8.2";
 
       setState(
         "complete",
@@ -2364,8 +2396,10 @@
         document.getElementById("voiceText").textContent =
           voiceEnabled ? "ON" : "OFF";
 
+        try { onBootstrapV82_(data); } catch (bootErrV82) {}
+
         document.getElementById("onlineText").textContent =
-          data.apiReady ? "SYSTEM ONLINE V8.1.6" : "API KEY NEEDED";
+          data.apiReady ? (liveReadyV82_ ? "LIVE READY V8.2" : "SYSTEM ONLINE V8.2") : "API KEY NEEDED";
 
         if (SpeechRecognitionCtor) {
           document.getElementById("clapLabel").textContent =
@@ -2813,7 +2847,8 @@
           text: ctx.text,
           deviceId: deviceId,
           inputType: ctx.inputType || "VOICE_BROWSER",
-          operationId: ctx.operationId
+          operationId: ctx.operationId,
+          speechAlternativesJson: ctx.speechAlternativesJson || ""
         },
         function(result) {
           if (result && result.errorCode === "JARVIS_POLL_TIMEOUT") {
@@ -2830,7 +2865,7 @@
   }
 
   // 全入力を注文専用FASTへ。Web/一般AIへは送らない。
-  function sendCommand(text, inputType) {
+  function sendCommand(text, inputType, speechAlternativesV817) {
     if (!text || busy) return;
     stopConfirmV814_();
     v814Confirm = null;
@@ -2840,10 +2875,16 @@
 
     busy = true;
     var opId = makeOperationIdV814_();
+    var alternativesJsonV817 = "";
+    if (/^VOICE/.test(String(inputType || "").toUpperCase()) && speechAlternativesV817 && speechAlternativesV817.length) {
+      try { alternativesJsonV817 = JSON.stringify(speechAlternativesV817.slice(0,5)); } catch (ignore817) {}
+    }
+
     v814ActiveOrder = {
       operationId: opId,
       text: normalized,
-      inputType: inputType || "TEXT"
+      inputType: inputType || "TEXT",
+      speechAlternativesJson: alternativesJsonV817
     };
 
     showMessage(normalized);
@@ -2855,7 +2896,8 @@
         text: normalized,
         deviceId: deviceId,
         inputType: inputType || "TEXT",
-        operationId: opId
+        operationId: opId,
+        speechAlternativesJson: alternativesJsonV817
       },
       function(result) {
         if (result && result.errorCode === "JARVIS_POLL_TIMEOUT") {
@@ -2979,7 +3021,7 @@
     var transcript = String(result.normalizedTranscript || result.transcript || "").trim();
     showMessage(transcript ? ("認識：" + transcript + "\n\n" + message) : message);
 
-    document.getElementById("onlineText").textContent = "SYSTEM ONLINE V8.1.6";
+    document.getElementById("onlineText").textContent = "SYSTEM ONLINE V8.2";
     if (ok) setState("complete", "COMPLETE", "ORDER TURBO");
     else setState("error", "ERROR", result.resultUnknown ? "RESULT UNKNOWN" : "注文内容を確認してください");
 
@@ -3013,8 +3055,9 @@
   var loadBootstrapBaseV814_ = loadBootstrap;
   loadBootstrap = function() {
     loadBootstrapBaseV814_();
-    document.getElementById("onlineText").textContent = "ORDER TURBO V8.1.4";
+    document.getElementById("onlineText").textContent = liveReadyV82_ ? "LIVE READY V8.2" : "LIVE ORDER V8.2";
   };
+  window.loadBootstrap = loadBootstrap;
 
 
   // Confirmation fallback: text input / mic button also work on old iPhone.
@@ -3055,6 +3098,327 @@
     setState("listening", "LISTENING", "ご用件をどうぞ");
     beginFastVoiceInput_();
   };
+
+
+  // =====================================================
+  // SERINA JARVIS v8.2 LIVE ORDER
+  // - Wake word: local Web Speech (free / proven on iPhone SE)
+  // - Command STT: GPT-Live-Transcribe over pre-warmed WebRTC
+  // - Menu / aliases: bootstrap preload, sent as transcription context
+  // - If Live is unavailable, fall back to v8.1.7 Web Speech path
+  // =====================================================
+  var V82_MENU_STORAGE_KEY = "serinaJarvisMenuV82";
+  var livePcV82_ = null;
+  var liveDcV82_ = null;
+  var liveTrackV82_ = null;
+  var liveReadyV82_ = false;
+  var liveConnectingV82_ = false;
+  var liveListeningV82_ = false;
+  var liveTranscriptV82_ = "";
+  var liveFinalizeTimerV82_ = null;
+  var liveHardTimerV82_ = null;
+  var liveReconnectTimerV82_ = null;
+  var liveMenuV82_ = null;
+  var liveLastDeltaAtV82_ = 0;
+  var liveStartedAtV82_ = 0;
+  var V82_DELTA_QUIET_MS = 850;
+  var V82_HARD_LISTEN_MS = 7500;
+
+  function v82SafeJsonParse_(s) {
+    try { return JSON.parse(String(s || "")); } catch (e) { return null; }
+  }
+
+  function onBootstrapV82_(data) {
+    if (data && data.preloadMenu) {
+      liveMenuV82_ = data.preloadMenu;
+      try {
+        localStorage.setItem(V82_MENU_STORAGE_KEY, JSON.stringify(liveMenuV82_));
+      } catch (ignore) {}
+    } else if (!liveMenuV82_) {
+      liveMenuV82_ = v82SafeJsonParse_(localStorage.getItem(V82_MENU_STORAGE_KEY));
+    }
+
+    if (micReady && data && data.liveTranscribeEnabled !== false) {
+      setTimeout(initLiveTranscribeV82_, 30);
+    }
+  }
+
+  function buildLiveContextV82_() {
+    var preload = liveMenuV82_ || {};
+    var products = Array.isArray(preload.products) ? preload.products : [];
+    var aliases = Array.isArray(preload.aliases) ? preload.aliases : [];
+    var tables = Array.isArray(preload.tables) ? preload.tables : [];
+    var names = [];
+    var readings = [];
+    var aliasWords = [];
+    var seen = {};
+    var i, p, n;
+
+    for (i = 0; i < products.length && names.length < 180; i++) {
+      p = products[i] || {};
+      n = String(p.name || "").trim();
+      if (n && !seen["n:" + n]) { seen["n:" + n] = true; names.push(n); }
+      n = String(p.reading || "").trim();
+      if (n && !seen["r:" + n] && readings.length < 120) { seen["r:" + n] = true; readings.push(n); }
+    }
+    for (i = 0; i < aliases.length && aliasWords.length < 80; i++) {
+      n = String((aliases[i] || {}).alias || "").trim();
+      if (n && !seen["a:" + n]) { seen["a:" + n] = true; aliasWords.push(n); }
+    }
+
+    return [
+      "日本語の中華料理店『芹菜』の注文オペレーション音声を、話した内容どおり正確に文字起こししてください。",
+      "最重要: 卓番号を推測で変更しない。卓番号候補は " + (tables.length ? tables.join("、") : "0卓、1卓、2卓、3卓、4卓、5卓、6卓、座1卓、座2卓、座3卓") + "。",
+      "操作語: 追加、注文、オーダー、調理済、調理完了、提供済、提供完了、完了、注文確認、オーダー確認。",
+      "商品名候補: " + names.join("、") + "。",
+      readings.length ? ("読み候補: " + readings.join("、") + "。") : "",
+      aliasWords.length ? ("音声別名: " + aliasWords.join("、") + "。") : "",
+      "数字・数量・卓番を特に正確に保持してください。"
+    ].filter(function(x){ return !!x; }).join("\n").slice(0, 10000);
+  }
+
+  function waitIceCompleteV82_(pc, done) {
+    var finished = false;
+    var timer = setTimeout(finish, 1200);
+    function finish() {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      try { pc.removeEventListener("icegatheringstatechange", onState); } catch (ignore) {}
+      done();
+    }
+    function onState() {
+      if (pc.iceGatheringState === "complete") finish();
+    }
+    if (pc.iceGatheringState === "complete") { finish(); return; }
+    pc.addEventListener("icegatheringstatechange", onState);
+  }
+
+  function closeLiveV82_(scheduleReconnect) {
+    liveReadyV82_ = false;
+    liveConnectingV82_ = false;
+    liveListeningV82_ = false;
+    if (liveFinalizeTimerV82_) { clearTimeout(liveFinalizeTimerV82_); liveFinalizeTimerV82_ = null; }
+    if (liveHardTimerV82_) { clearTimeout(liveHardTimerV82_); liveHardTimerV82_ = null; }
+    try { if (liveTrackV82_) liveTrackV82_.stop(); } catch (ignore1) {}
+    try { if (liveDcV82_) liveDcV82_.close(); } catch (ignore2) {}
+    try { if (livePcV82_) livePcV82_.close(); } catch (ignore3) {}
+    liveTrackV82_ = null;
+    liveDcV82_ = null;
+    livePcV82_ = null;
+    if (scheduleReconnect && micReady && state === "standby") {
+      if (liveReconnectTimerV82_) clearTimeout(liveReconnectTimerV82_);
+      liveReconnectTimerV82_ = setTimeout(initLiveTranscribeV82_, 1800);
+    }
+  }
+
+  function sendLiveEventV82_(obj) {
+    if (!liveDcV82_ || liveDcV82_.readyState !== "open") return false;
+    try { liveDcV82_.send(JSON.stringify(obj)); return true; } catch (e) { return false; }
+  }
+
+  function setLiveReadyV82_() {
+    if (liveReadyV82_) return;
+    liveReadyV82_ = true;
+    liveConnectingV82_ = false;
+    document.getElementById("onlineText").textContent = "LIVE READY V8.2";
+    document.getElementById("clapLabel").textContent = "WAKE WORD + GPT LIVE";
+    sendLiveEventV82_({
+      type: "session.instructions.append",
+      content: buildLiveContextV82_()
+    });
+  }
+
+  function handleLiveEventV82_(evt) {
+    var msg = v82SafeJsonParse_(evt && evt.data);
+    if (!msg) return;
+    var type = String(msg.type || "");
+
+    if (type === "session.started" || type === "session.created") {
+      setLiveReadyV82_();
+      return;
+    }
+
+    if (type === "error") {
+      if (liveListeningV82_) {
+        stopLiveListenV82_(true);
+      }
+      return;
+    }
+
+    var delta = "";
+    if (type === "input_transcript.delta") delta = String(msg.delta || "");
+    else if (type === "conversation.item.input_audio_transcription.delta") delta = String(msg.delta || "");
+    else if (type === "transcription.delta") delta = String(msg.delta || "");
+
+    if (delta && liveListeningV82_) {
+      liveTranscriptV82_ += delta;
+      liveLastDeltaAtV82_ = Date.now();
+      showMessage("認識中：" + String(liveTranscriptV82_).trim());
+      scheduleLiveFinalizeV82_(V82_DELTA_QUIET_MS);
+      if (/以上[。！!]?\s*$/.test(liveTranscriptV82_)) scheduleLiveFinalizeV82_(160);
+      return;
+    }
+
+    if (type === "conversation.item.input_audio_transcription.completed" || type === "transcription.completed") {
+      if (msg.transcript) liveTranscriptV82_ = String(msg.transcript);
+      if (liveListeningV82_) scheduleLiveFinalizeV82_(180);
+      return;
+    }
+
+    if (type === "input_audio_buffer.speech_stopped" || type === "input_audio.speech_stopped") {
+      if (liveListeningV82_ && liveTranscriptV82_.trim()) scheduleLiveFinalizeV82_(250);
+    }
+  }
+
+  function initLiveTranscribeV82_() {
+    if (liveReadyV82_ || liveConnectingV82_ || !micReady || !micStream) return;
+    if (!window.RTCPeerConnection) return;
+    var sourceTrack = micStream.getAudioTracks && micStream.getAudioTracks()[0];
+    if (!sourceTrack) return;
+
+    liveConnectingV82_ = true;
+    document.getElementById("onlineText").textContent = "LIVE WARMING V8.2";
+
+    try {
+      var pc = new RTCPeerConnection();
+      livePcV82_ = pc;
+      var clone = sourceTrack.clone();
+      clone.enabled = false;
+      liveTrackV82_ = clone;
+      pc.addTrack(clone, new MediaStream([clone]));
+
+      var dc = pc.createDataChannel("oai-events");
+      liveDcV82_ = dc;
+      dc.onmessage = handleLiveEventV82_;
+      dc.onopen = function() {
+        // New Live API emits session.started; older-compatible transports may only open the channel.
+        setTimeout(function(){
+          if (liveDcV82_ === dc && dc.readyState === "open" && !liveReadyV82_) setLiveReadyV82_();
+        }, 700);
+      };
+      dc.onclose = function(){ if (livePcV82_ === pc) closeLiveV82_(true); };
+      dc.onerror = function(){ if (livePcV82_ === pc && !liveReadyV82_) closeLiveV82_(true); };
+
+      pc.onconnectionstatechange = function() {
+        var cs = String(pc.connectionState || "");
+        if (cs === "failed" || cs === "closed") closeLiveV82_(true);
+      };
+
+      pc.createOffer({offerToReceiveAudio:false}).then(function(offer){
+        return pc.setLocalDescription(offer).then(function(){
+          waitIceCompleteV82_(pc, function(){
+            if (livePcV82_ !== pc || !pc.localDescription) return;
+            apiRequest(
+              "live_offer",
+              { sdpOffer: pc.localDescription.sdp, deviceId: deviceId },
+              function(result) {
+                if (livePcV82_ !== pc) return;
+                if (!result || result.success !== true || !result.answerSdp) {
+                  closeLiveV82_(true);
+                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V8.2";
+                  return;
+                }
+                pc.setRemoteDescription({type:"answer", sdp:String(result.answerSdp)}).catch(function(){
+                  closeLiveV82_(true);
+                });
+              },
+              18000
+            );
+          });
+        });
+      }).catch(function(){ closeLiveV82_(true); });
+    } catch (err) {
+      closeLiveV82_(true);
+    }
+  }
+
+  function scheduleLiveFinalizeV82_(delayMs) {
+    if (liveFinalizeTimerV82_) clearTimeout(liveFinalizeTimerV82_);
+    liveFinalizeTimerV82_ = setTimeout(function(){ finalizeLiveTranscriptV82_(false); }, Number(delayMs || V82_DELTA_QUIET_MS));
+  }
+
+  function stopLiveListenV82_(keepConnection) {
+    liveListeningV82_ = false;
+    if (liveTrackV82_) liveTrackV82_.enabled = false;
+    if (liveFinalizeTimerV82_) { clearTimeout(liveFinalizeTimerV82_); liveFinalizeTimerV82_ = null; }
+    if (liveHardTimerV82_) { clearTimeout(liveHardTimerV82_); liveHardTimerV82_ = null; }
+    if (!keepConnection) closeLiveV82_(true);
+  }
+
+  function finalizeLiveTranscriptV82_(hardTimeout) {
+    if (!liveListeningV82_) return;
+    // Disable media first, then allow a short tail window for the final transcript delta.
+    if (liveTrackV82_) liveTrackV82_.enabled = false;
+    liveListeningV82_ = false;
+    if (liveFinalizeTimerV82_) { clearTimeout(liveFinalizeTimerV82_); liveFinalizeTimerV82_ = null; }
+    if (liveHardTimerV82_) { clearTimeout(liveHardTimerV82_); liveHardTimerV82_ = null; }
+
+    setTimeout(function(){
+      var text = String(liveTranscriptV82_ || "").replace(/\s+/g, " ").trim();
+      liveTranscriptV82_ = "";
+      if (!text) {
+        setState("listening", "LISTENING", "音声をもう一度お願いします");
+        // Reliable fallback used by v8.1.7.
+        beginFastVoiceInputBaseV82_();
+        return;
+      }
+      setState("processing", "LIVE TRANSCRIBED", "注文を高速処理しています...");
+      showMessage("認識：" + text);
+      sendCommand(text, "VOICE_LIVE");
+    }, hardTimeout ? 120 : 260);
+  }
+
+  function startLiveOrderV82_() {
+    if (!liveReadyV82_ || !liveTrackV82_ || !liveDcV82_ || liveDcV82_.readyState !== "open") return false;
+    commandModeActive = true;
+    liveTranscriptV82_ = "";
+    liveLastDeltaAtV82_ = 0;
+    liveStartedAtV82_ = Date.now();
+    liveListeningV82_ = true;
+    if (commandDeadlineTimer) { clearTimeout(commandDeadlineTimer); commandDeadlineTimer = null; }
+    setState("listening", "GPT LIVE", "ご用件をどうぞ");
+    showMessage("");
+    try { liveTrackV82_.enabled = true; } catch (e) { liveListeningV82_ = false; return false; }
+    liveHardTimerV82_ = setTimeout(function(){ finalizeLiveTranscriptV82_(true); }, V82_HARD_LISTEN_MS);
+    return true;
+  }
+
+  // Replace only the command-listening stage. Wake word stays on the proven V5 Web Speech path.
+  var beginFastVoiceInputBaseV82_ = beginFastVoiceInput_;
+  beginFastVoiceInput_ = function() {
+    stopWakeWordRecognition_();
+    if (startLiveOrderV82_()) return;
+    beginFastVoiceInputBaseV82_();
+    if (!liveReadyV82_ && micReady) setTimeout(initLiveTranscribeV82_, 250);
+  };
+
+  // When returning to standby, keep the Live session warm but media muted.
+  var returnToStandbyBaseV82_ = returnToStandby;
+  returnToStandby = function(subText) {
+    stopLiveListenV82_(true);
+    returnToStandbyBaseV82_(subText);
+    if (!liveReadyV82_ && micReady) setTimeout(initLiveTranscribeV82_, 500);
+  };
+
+  // Manual mic uses GPT Live too when available.
+  window.manualListen = function() {
+    if (busy) return;
+    if (v814Confirm) {
+      stopConfirmV814_();
+      startConfirmRecognitionV814_();
+      return;
+    }
+    if (state === "offline") { alert("先にSYSTEM STARTを押してください。"); return; }
+    if (!micReady) { setState("error", "MIC ERROR", "マイクが起動していません。"); setTimeout(returnToStandby, 1600); return; }
+    stopWakeWordRecognition_();
+    if (!startLiveOrderV82_()) beginFastVoiceInputBaseV82_();
+  };
+
+  // Restore cached menu immediately; latest data is refreshed by bootstrap in the background.
+  try {
+    if (!liveMenuV82_) liveMenuV82_ = v82SafeJsonParse_(localStorage.getItem(V82_MENU_STORAGE_KEY));
+  } catch (ignoreV82) {}
 
 })();
 </script>
