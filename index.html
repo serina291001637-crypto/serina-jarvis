@@ -475,7 +475,7 @@
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V8.2.1</div>
+      <div class="online-text" id="onlineText">BOOTING V8.2.2.1</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -2092,7 +2092,7 @@
       // bootstrapを一度取りこぼしてAPI OFFLINE表示になっていても、
       // 実際のAPI応答が成功したらオンライン表示へ復帰。
       document.getElementById("onlineText").textContent =
-        "SYSTEM ONLINE V8.2.1";
+        "SYSTEM ONLINE V8.2.2";
 
       setState(
         "complete",
@@ -2406,7 +2406,7 @@
         try { onBootstrapV82_(data); } catch (bootErrV82) {}
 
         document.getElementById("onlineText").textContent =
-          data.apiReady ? (liveReadyV82_ ? "LIVE READY V8.2.1" : "SYSTEM ONLINE V8.2.1") : "API KEY NEEDED";
+          data.apiReady ? (liveReadyV82_ ? "LIVE READY V8.2.2" : "SYSTEM ONLINE V8.2.2") : "API KEY NEEDED";
 
         if (SpeechRecognitionCtor) {
           document.getElementById("clapLabel").textContent =
@@ -3028,7 +3028,7 @@
     var transcript = String(result.normalizedTranscript || result.transcript || "").trim();
     showMessage(transcript ? ("認識：" + transcript + "\n\n" + message) : message);
 
-    document.getElementById("onlineText").textContent = "SYSTEM ONLINE V8.2.1";
+    document.getElementById("onlineText").textContent = "SYSTEM ONLINE V8.2.2";
     if (ok) setState("complete", "COMPLETE", "ORDER TURBO");
     else setState("error", "ERROR", result.resultUnknown ? "RESULT UNKNOWN" : "注文内容を確認してください");
 
@@ -3062,7 +3062,7 @@
   var loadBootstrapBaseV814_ = loadBootstrap;
   loadBootstrap = function() {
     loadBootstrapBaseV814_();
-    document.getElementById("onlineText").textContent = liveReadyV82_ ? "LIVE READY V8.2.1" : "LIVE ORDER V8.2.1";
+    document.getElementById("onlineText").textContent = liveReadyV82_ ? "LIVE READY V8.2.2" : "LIVE ORDER V8.2.1";
   };
   window.loadBootstrap = loadBootstrap;
 
@@ -3149,6 +3149,11 @@
       liveMenuV82_ = v82SafeJsonParse_(localStorage.getItem(V82_MENU_STORAGE_KEY));
     }
 
+    buildLocalMenuIndexV822_();
+    var pc = liveIndexV822_ && liveIndexV822_.products ? liveIndexV822_.products.length : 0;
+    var tc = liveIndexV822_ && liveIndexV822_.tables ? liveIndexV822_.tables.length : 0;
+    document.getElementById("clapLabel").textContent = "PRELOAD " + pc + " MENU / " + tc + " TABLES";
+
     if (micReady && data && data.liveTranscribeEnabled !== false) {
       setTimeout(initLiveTranscribeV82_, 30);
     }
@@ -3159,33 +3164,168 @@
     var products = Array.isArray(preload.products) ? preload.products : [];
     var aliases = Array.isArray(preload.aliases) ? preload.aliases : [];
     var tables = Array.isArray(preload.tables) ? preload.tables : [];
-    var names = [];
-    var readings = [];
-    var aliasWords = [];
+    var pairs = [];
+    var aliasPairs = [];
     var seen = {};
-    var i, p, n;
+    var i, p, a, key;
 
-    for (i = 0; i < products.length && names.length < 180; i++) {
-      p = products[i] || {};
-      n = String(p.name || "").trim();
-      if (n && !seen["n:" + n]) { seen["n:" + n] = true; names.push(n); }
-      n = String(p.reading || "").trim();
-      if (n && !seen["r:" + n] && readings.length < 120) { seen["r:" + n] = true; readings.push(n); }
+    for (i=0; i<products.length && pairs.length<180; i++) {
+      p=products[i]||{};
+      if(!p.name) continue;
+      key=String(p.name||"")+"|"+String(p.reading||"");
+      if(seen[key]) continue;
+      seen[key]=true;
+      pairs.push(String(p.name)+(p.reading ? "（"+String(p.reading)+"）" : ""));
     }
-    for (i = 0; i < aliases.length && aliasWords.length < 80; i++) {
-      n = String((aliases[i] || {}).alias || "").trim();
-      if (n && !seen["a:" + n]) { seen["a:" + n] = true; aliasWords.push(n); }
+    for (i=0; i<aliases.length && aliasPairs.length<80; i++) {
+      a=aliases[i]||{};
+      if(!a.alias || !a.targetName) continue;
+      aliasPairs.push(String(a.alias)+"→"+String(a.targetName));
     }
 
     return [
-      "日本語の中華料理店『芹菜』の注文オペレーション音声を、話した内容どおり正確に文字起こししてください。",
-      "最重要: 卓番号を推測で変更しない。卓番号候補は " + (tables.length ? tables.join("、") : "0卓、1卓、2卓、3卓、4卓、5卓、6卓、座1卓、座2卓、座3卓") + "。",
-      "操作語: 追加、注文、オーダー、調理済、調理完了、提供済、提供完了、完了、注文確認、オーダー確認。",
-      "商品名候補: " + names.join("、") + "。",
-      readings.length ? ("読み候補: " + readings.join("、") + "。") : "",
-      aliasWords.length ? ("音声別名: " + aliasWords.join("、") + "。") : "",
-      "数字・数量・卓番を特に正確に保持してください。"
-    ].filter(function(x){ return !!x; }).join("\n").slice(0, 10000);
+      "日本語の中華料理店『芹菜』の注文オペレーション音声です。聞こえた発話を省略せず文字起こししてください。",
+      "最重要: 卓番号を推測・補完・変更しない。卓番号候補は " + (tables.length ? tables.join("、") : "0卓、1卓、2卓、3卓、4卓、5卓、6卓、座1卓、座2卓、座3卓") + "。",
+      "特に卓番号・数量・商品名を保持する。数字を別の数字へ推測変換しない。",
+      "注文操作語: 追加、入れて、注文、オーダー、調理済、調理完了、未調理に戻して、提供済、提供完了、完了、注文確認、オーダー確認。",
+      "店内の商品名と読み: " + pairs.join("、") + "。",
+      aliasPairs.length ? ("音声上の別名: " + aliasPairs.join("、") + "。") : "",
+      "商品名は上記候補の発音を優先するが、聞こえない語を勝手に作らない。"
+    ].filter(function(x){return !!x;}).join("\n").slice(0,12000);
+  }
+
+  // =====================================================
+  // v8.2.2 PRELOADED MENU DICTIONARY
+  // GPT Live = speech-to-text only.
+  // Menu / VoiceAliases / Tables = authoritative local correction dictionary.
+  // Do NOT guess a table number. Product correction is accepted only when unique.
+  // =====================================================
+  var liveIndexV822_ = null;
+
+  function v822Norm_(value) {
+    var s = String(value == null ? "" : value).trim();
+    try { s = s.normalize("NFKC"); } catch (ignore) {}
+    s = s.toLowerCase();
+    var out = "";
+    for (var i=0;i<s.length;i++) {
+      var c=s.charCodeAt(i);
+      if (c>=0x30A1 && c<=0x30F6) out += String.fromCharCode(c-0x60);
+      else out += s.charAt(i);
+    }
+    return out
+      .replace(/ぎょーざ/g,"ぎょうざ")
+      .replace(/まーぼーどーふ/g,"まーぼーどうふ")
+      .replace(/えび/g,"えび")
+      .replace(/[\s　・･、,。.!！?？\-＿_【】\[\]（）()「」『』]/g,"");
+  }
+
+  function v822Lev_(a,b) {
+    a=String(a||""); b=String(b||"");
+    var n=a.length,m=b.length,i,j,prev=[],cur=[];
+    for(j=0;j<=m;j++) prev[j]=j;
+    for(i=1;i<=n;i++) {
+      cur=[i];
+      for(j=1;j<=m;j++) cur[j]=Math.min(cur[j-1]+1,prev[j]+1,prev[j-1]+(a.charAt(i-1)===b.charAt(j-1)?0:1));
+      prev=cur;
+    }
+    return prev[m];
+  }
+
+  function v822Similarity_(a,b) {
+    a=v822Norm_(a); b=v822Norm_(b);
+    if(!a||!b) return 0;
+    if(a===b) return 1;
+    if(a.indexOf(b)>=0 || b.indexOf(a)>=0) {
+      var r=Math.min(a.length,b.length)/Math.max(a.length,b.length);
+      return 0.90 + Math.min(0.08,r*0.08);
+    }
+    var d=v822Lev_(a,b);
+    return Math.max(0,1-d/Math.max(a.length,b.length));
+  }
+
+  function buildLocalMenuIndexV822_() {
+    var preload=liveMenuV82_||{};
+    var products=Array.isArray(preload.products)?preload.products:[];
+    var aliases=Array.isArray(preload.aliases)?preload.aliases:[];
+    var tables=Array.isArray(preload.tables)?preload.tables:[];
+    var entries=[], byTarget={};
+    var i,p,k,a,target;
+
+    for(i=0;i<products.length;i++) {
+      p=products[i]||{};
+      if(!p.name) continue;
+      target=String(p.candidateId||p.number||p.name);
+      byTarget[target]=p;
+      entries.push({term:String(p.name||""), norm:v822Norm_(p.name), product:p, kind:"name"});
+      if(p.reading) entries.push({term:String(p.reading), norm:v822Norm_(p.reading), product:p, kind:"reading"});
+    }
+    for(i=0;i<aliases.length;i++) {
+      a=aliases[i]||{};
+      var hit=null;
+      for(k=0;k<products.length;k++) {
+        p=products[k]||{};
+        if(String(p.name||"")!==String(a.targetName||"")) continue;
+        if(a.targetCategory && String(p.category||"")!==String(a.targetCategory)) continue;
+        if(a.targetNumber && String(p.number||"")!==String(a.targetNumber)) continue;
+        hit=p; break;
+      }
+      if(hit && a.alias) entries.push({term:String(a.alias), norm:v822Norm_(a.normalizedAlias||a.alias), product:hit, kind:"alias"});
+    }
+    liveIndexV822_={products:products,aliases:aliases,tables:tables,entries:entries,snapshotAt:String(preload.snapshotAt||"")};
+    return liveIndexV822_;
+  }
+
+  function v822ExtractProductPhrase_(text) {
+    var s=String(text||"");
+    // Table phrases and known speech confusions are removed only from product-search text.
+    s=s.replace(/(?:テイクアウト|(?:座敷|座)\s*[1-3]\s*卓?|[0-7]\s*(?:番)?\s*(?:卓|テーブル)|(?:卓|テーブル)\s*[0-7]|食卓|自宅|三宅(?:様|さん)?|3\s*(?:宅|択|たく|タク)|委託|お得)/g," ");
+    s=s.replace(/(?:追加(?:して|してください|お願い)?|入れて(?:ください)?|注文(?:して|してください)?|オーダー(?:して|してください)?|調理済(?:み)?|調理完了|提供済(?:み)?|提供完了|完了(?:しました|して)?|未調理に戻して|戻して|確認(?:して|してください)?|教えて(?:ください)?|状況)/g," ");
+    s=s.replace(/[0-9０-９一二三四五六七八九十百]+\s*(?:点|個|枚|皿|つ|人前|本|杯)/g," ");
+    s=s.replace(/(?:を|に|へ|の|で|と|が|は|も|ください|お願い|お願いします)/g," ");
+    return s.replace(/[\s　、,。.!！?？]+/g,"").trim();
+  }
+
+  function v822FindProduct_(rawText) {
+    var idx=liveIndexV822_||buildLocalMenuIndexV822_();
+    var phrase=v822ExtractProductPhrase_(rawText);
+    var key=v822Norm_(phrase);
+    var fullKey=v822Norm_(rawText);
+    if(!key) return {product:null,score:0,reason:"NO_PHRASE",phrase:phrase};
+    var scores={}, rows=[];
+    for(var i=0;i<idx.entries.length;i++) {
+      var e=idx.entries[i]; if(!e.norm) continue;
+      var score=0;
+      if(key===e.norm) score=(e.kind==="alias"?0.995:1.0);
+      else if(fullKey.indexOf(e.norm)>=0) score=(e.kind==="alias"?0.98:0.99);
+      else score=v822Similarity_(key,e.norm);
+      var id=String(e.product.candidateId||e.product.number||e.product.name);
+      if(!scores[id] || scores[id].score<score) scores[id]={product:e.product,score:score,term:e.term,kind:e.kind};
+    }
+    Object.keys(scores).forEach(function(id){ rows.push(scores[id]); });
+    rows.sort(function(a,b){ return b.score-a.score; });
+    var top=rows[0], second=rows[1];
+    if(!top) return {product:null,score:0,reason:"NO_CANDIDATE",phrase:phrase};
+    var margin=top.score-(second?second.score:0);
+    // Conservative thresholds: typo correction only when the candidate is clearly unique.
+    var accept=(top.score>=0.84 && margin>=0.12) || top.score>=0.97;
+    if(!accept) return {product:null,score:top.score,secondScore:second?second.score:0,reason:"AMBIGUOUS",phrase:phrase,candidates:rows.slice(0,3)};
+    return {product:top.product,score:top.score,secondScore:second?second.score:0,reason:top.kind.toUpperCase(),phrase:phrase,matchedTerm:top.term};
+  }
+
+  function correctLiveTranscriptV822_(rawText) {
+    var raw=String(rawText||"").replace(/\s+/g," ").trim();
+    if(!raw) return {text:"",raw:"",changed:false};
+    var s=normalizeRestaurantVoiceTranscriptClient_(raw);
+    var match=v822FindProduct_(s);
+    if(match.product && match.product.name) {
+      var phrase=String(match.phrase||"");
+      if(phrase && phrase!==String(match.product.name)) {
+        // Replace only the extracted product phrase. Never rewrite the table number here.
+        var pos=s.indexOf(phrase);
+        if(pos>=0) s=s.substring(0,pos)+String(match.product.name)+s.substring(pos+phrase.length);
+      }
+    }
+    return {text:s,raw:raw,changed:s!==raw,product:match.product||null,match:match};
   }
 
   function waitIceCompleteV82_(pc, done) {
@@ -3234,7 +3374,7 @@
     if (liveReadyV82_) return;
     liveReadyV82_ = true;
     liveConnectingV82_ = false;
-    document.getElementById("onlineText").textContent = "LIVE READY V8.2.1";
+    document.getElementById("onlineText").textContent = "LIVE READY V8.2.2";
     document.getElementById("clapLabel").textContent = "WAKE WORD + GPT LIVE";
     sendLiveEventV82_({
       type: "session.instructions.append",
@@ -3291,7 +3431,7 @@
     if (!sourceTrack) return;
 
     liveConnectingV82_ = true;
-    document.getElementById("onlineText").textContent = "LIVE WARMING V8.2.1";
+    document.getElementById("onlineText").textContent = "LIVE WARMING V8.2.2";
 
     try {
       var pc = new RTCPeerConnection();
@@ -3334,7 +3474,7 @@
                 if (livePcV82_ !== pc) return;
                 if (!result || result.success !== true || !result.answerSdp) {
                   closeLiveV82_(true);
-                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V8.2.1";
+                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V8.2.2";
                   return;
                 }
                 pc.setRemoteDescription({type:"answer", sdp:String(result.answerSdp)}).catch(function(){
@@ -3389,9 +3529,15 @@
         beginFastVoiceInputBaseV82_();
         return;
       }
-      setState("processing", "LIVE TRANSCRIBED", "注文を高速処理しています...");
-      showMessage("認識：" + text);
-      sendCommand(text, "VOICE_LIVE");
+      var correctedV822 = correctLiveTranscriptV822_(text);
+      var commandTextV822 = String(correctedV822.text || text).trim();
+      setState("processing", "LIVE TRANSCRIBED", "Menu辞書で照合して高速処理しています...");
+      if (correctedV822.changed) {
+        showMessage("GPT認識：" + text + "\n辞書補正：" + commandTextV822);
+      } else {
+        showMessage("認識：" + commandTextV822);
+      }
+      sendCommand(commandTextV822, "VOICE_LIVE");
     }, hardTimeout ? 120 : 260);
   }
 
@@ -3492,6 +3638,7 @@
   // Restore cached menu immediately; latest data is refreshed by bootstrap in the background.
   try {
     if (!liveMenuV82_) liveMenuV82_ = v82SafeJsonParse_(localStorage.getItem(V82_MENU_STORAGE_KEY));
+    if (liveMenuV82_) buildLocalMenuIndexV822_();
   } catch (ignoreV82) {}
 
 })();
