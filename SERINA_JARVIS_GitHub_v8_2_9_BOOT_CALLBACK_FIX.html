@@ -6,13 +6,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#02070b">
-  <title>JARVIS LIVE ORDER 8.2.8 | SERINA</title>
+  <title>JARVIS LIVE ORDER 8.2.9 | SERINA</title>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <script>
   (function(){
-    var version = "8.2.8";
+    var version = "8.2.9";
     var maxUrlAgeMs = 5 * 60 * 1000;
     var now = Date.now();
     var url;
@@ -418,7 +418,7 @@
     }
 
 
-    /* v8.2.8 futuristic initialization overlay */
+    /* v8.2.9 futuristic initialization overlay */
     .boot-overlay {
       position: fixed; inset: 0; z-index: 80; display: none;
       align-items: center; justify-content: center; padding: 24px;
@@ -556,7 +556,7 @@
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V8.2.8</div>
+      <div class="online-text" id="onlineText">BOOTING V8.2.9</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -604,7 +604,7 @@
 <div class="boot-overlay" id="bootOverlay" aria-live="polite">
   <div class="boot-shell">
     <div class="boot-brand">JARVIS</div>
-    <div class="boot-version">SERINA CORE // BOOT SEQUENCE 8.2.8</div>
+    <div class="boot-version">SERINA CORE // BOOT SEQUENCE 8.2.9</div>
     <div class="boot-reactor">
       <div class="boot-ring r1"></div><div class="boot-ring r2"></div><div class="boot-ring r3"></div>
       <div class="boot-core"></div>
@@ -787,44 +787,44 @@
   var NO_SPEECH_TIMEOUT_MS = 2400;
   var END_SILENCE_MS = 700;
 
-  var APP_VERSION = "8.2.8";
-  var bootActiveV828_ = false;
-  var bootMicReadyV828_ = false;
-  var bootCalibratedV828_ = false;
-  var bootDataReadyV828_ = false;
-  var bootStartedAtV828_ = 0;
+  var APP_VERSION = "8.2.9";
+  var bootActiveV829_ = false;
+  var bootMicReadyV829_ = false;
+  var bootCalibratedV829_ = false;
+  var bootDataReadyV829_ = false;
+  var bootStartedAtV829_ = 0;
 
-  function showBootOverlayV828_() {
-    bootActiveV828_ = true; bootStartedAtV828_ = Date.now();
-    bootMicReadyV828_ = false; bootCalibratedV828_ = false; bootDataReadyV828_ = false;
+  function showBootOverlayV829_() {
+    bootActiveV829_ = true; bootStartedAtV829_ = Date.now();
+    bootMicReadyV829_ = false; bootCalibratedV829_ = false; bootDataReadyV829_ = false;
     var el=document.getElementById("bootOverlay"); if(el) el.className="boot-overlay show";
     var retry=document.getElementById("bootRetryButton"); if(retry) retry.className="boot-retry";
-    bootPhaseV828_(6,"SYSTEM INITIALIZATION","セキュアセッションを準備しています");
-    bootModuleV828_("Mic","WAIT",false); bootModuleV828_("Menu","WAIT",false); bootModuleV828_("Tables","WAIT",false); bootModuleV828_("Voice","WAIT",false);
+    bootPhaseV829_(6,"SYSTEM INITIALIZATION","セキュアセッションを準備しています");
+    bootModuleV829_("Mic","WAIT",false); bootModuleV829_("Menu","WAIT",false); bootModuleV829_("Tables","WAIT",false); bootModuleV829_("Voice","WAIT",false);
   }
 
-  function bootPhaseV828_(percent,title,detail) {
+  function bootPhaseV829_(percent,title,detail) {
     var bar=document.getElementById("bootProgressBar"); if(bar) bar.style.width=Math.max(0,Math.min(100,Number(percent||0)))+"%";
     var t=document.getElementById("bootTitle"); if(t) t.textContent=String(title||"");
     var d=document.getElementById("bootDetail"); if(d) d.textContent=String(detail||"");
   }
 
-  function bootModuleV828_(name,text,ok,warn) {
+  function bootModuleV829_(name,text,ok,warn) {
     var el=document.getElementById("bootModule"+name); if(!el) return;
     el.className="boot-module"+(ok?" ok":(warn?" warn":""));
     var s=el.querySelector(".boot-module-state"); if(s) s.textContent=String(text||"");
   }
 
-  function bootMaybeReadyV828_() {
-    if(!bootActiveV828_ || !bootMicReadyV828_ || !bootCalibratedV828_ || !bootDataReadyV828_) return;
+  function bootMaybeReadyV829_() {
+    if(!bootActiveV829_ || !bootMicReadyV829_ || !bootCalibratedV829_ || !bootDataReadyV829_) return;
     firstClapAt = 0; resetClapPulse_(); quietSince = Date.now();
     setState("standby","STANDBY",SpeechRecognitionCtor ? "「ジャービス」と呼んでください" : "マイクボタンから音声入力できます");
-    bootPhaseV828_(100,"JARVIS ONLINE","Menu / Tables / Voice dictionary synchronized");
+    bootPhaseV829_(100,"JARVIS ONLINE","Menu / Tables / Voice dictionary synchronized");
     if (SpeechRecognitionCtor) setTimeout(startWakeWordRecognition_, 350);
     setTimeout(function(){
       var el=document.getElementById("bootOverlay"); if(el) el.className="boot-overlay";
-      bootActiveV828_=false;
-    }, Math.max(520, 1150-(Date.now()-bootStartedAtV828_)));
+      bootActiveV829_=false;
+    }, Math.max(520, 1150-(Date.now()-bootStartedAtV829_)));
   }
 
   window.addEventListener("load", function() {
@@ -843,7 +843,7 @@
     updatePairingUi();
 
     if (getPairingToken()) {
-      document.getElementById("onlineText").textContent = "READY TO START V8.2.8";
+      document.getElementById("onlineText").textContent = "READY TO START V8.2.9";
     } else {
       document.getElementById("onlineText").textContent = "PAIRING NEEDED";
     }
@@ -910,43 +910,43 @@
       return;
     }
 
-    showBootOverlayV828_();
+    showBootOverlayV829_();
     setState("processing", "STARTING", "JARVISを初期化しています...");
     unlockSpeech();
-    bootPhaseV828_(12,"MICROPHONE LINK","音声入力回路を初期化しています");
+    bootPhaseV829_(12,"MICROPHONE LINK","音声入力回路を初期化しています");
 
     startAudioMonitor(function(ok, message) {
       if (!ok) {
-        bootModuleV828_("Mic","ERROR",false,true);
-        bootPhaseV828_(100,"MICROPHONE ERROR",message || "マイクを開始できません");
+        bootModuleV829_("Mic","ERROR",false,true);
+        bootPhaseV829_(100,"MICROPHONE ERROR",message || "マイクを開始できません");
         setState("error", "MIC ERROR", message || "マイクを開始できません。");
         return;
       }
 
       micReady = true;
-      bootMicReadyV828_ = true;
-      bootModuleV828_("Mic","LINKED",true);
+      bootMicReadyV829_ = true;
+      bootModuleV829_("Mic","LINKED",true);
       document.getElementById("startOverlay").style.display = "none";
 
       // Menu / Tables / VoiceAliases はマイク校正と並列で最新値を取得。
-      bootPhaseV828_(34,"DATABASE SYNCHRONIZATION","最新のMenu / Tablesを取得しています");
+      bootPhaseV829_(34,"DATABASE SYNCHRONIZATION","最新のMenu / Tablesを取得しています");
       loadBootstrap({
         boot:true,
         onDone:function(okBoot, dataBoot) {
           if (!okBoot) {
-            bootModuleV828_("Menu","RETRY",false,true);
-            bootModuleV828_("Tables","RETRY",false,true);
-            bootModuleV828_("Voice","RETRY",false,true);
+            bootModuleV829_("Menu","RETRY",false,true);
+            bootModuleV829_("Tables","RETRY",false,true);
+            bootModuleV829_("Voice","RETRY",false,true);
             setTimeout(function(){
               loadBootstrap({boot:true,onDone:function(okRetry,dataRetry){
                 if(!okRetry){
                   var cached = !!liveMenuV82_;
-                  bootModuleV828_("Menu",cached?"CACHE":"ERROR",cached,!cached);
-                  bootModuleV828_("Tables",cached?"CACHE":"ERROR",cached,!cached);
-                  bootModuleV828_("Voice",cached?"CACHE":"ERROR",cached,!cached);
-                  if(cached){ bootDataReadyV828_=true; bootPhaseV828_(86,"CACHE FALLBACK","通信不良のため端末キャッシュで起動します"); bootMaybeReadyV828_(); }
+                  bootModuleV829_("Menu",cached?"CACHE":"ERROR",cached,!cached);
+                  bootModuleV829_("Tables",cached?"CACHE":"ERROR",cached,!cached);
+                  bootModuleV829_("Voice",cached?"CACHE":"ERROR",cached,!cached);
+                  if(cached){ bootDataReadyV829_=true; bootPhaseV829_(86,"CACHE FALLBACK","通信不良のため端末キャッシュで起動します"); bootMaybeReadyV829_(); }
                   else {
-                    bootPhaseV828_(100,"DATABASE OFFLINE","Menu / Tablesを取得できませんでした。再読み込みしてください");
+                    bootPhaseV829_(100,"DATABASE OFFLINE","Menu / Tablesを取得できませんでした。再読み込みしてください");
                     var retry=document.getElementById("bootRetryButton"); if(retry) retry.className="boot-retry show";
                   }
                 }
@@ -954,21 +954,21 @@
             },900);
             return;
           }
-          bootDataReadyV828_ = true;
-          bootPhaseV828_(82,"DICTIONARY COMPILE","注文用辞書を構築しています");
-          bootMaybeReadyV828_();
+          bootDataReadyV829_ = true;
+          bootPhaseV829_(82,"DICTIONARY COMPILE","注文用辞書を構築しています");
+          bootMaybeReadyV829_();
         }
       });
 
       calibratingUntil = Date.now() + 1100;
       setState("calibrating", "CALIBRATING", "約1秒、静かにして環境音を測定します...");
-      bootPhaseV828_(48,"AUDIO CALIBRATION","環境音レベルを測定しています");
+      bootPhaseV829_(48,"AUDIO CALIBRATION","環境音レベルを測定しています");
 
       setTimeout(function() {
-        bootCalibratedV828_ = true;
-        bootModuleV828_("Mic","CALIBRATED",true);
-        if (!bootDataReadyV828_) bootPhaseV828_(62,"DATABASE SYNCHRONIZATION","Menu / Tables / VoiceAliases を待機しています");
-        bootMaybeReadyV828_();
+        bootCalibratedV829_ = true;
+        bootModuleV829_("Mic","CALIBRATED",true);
+        if (!bootDataReadyV829_) bootPhaseV829_(62,"DATABASE SYNCHRONIZATION","Menu / Tables / VoiceAliases を待機しています");
+        bootMaybeReadyV829_();
       }, 1150);
     });
   };
@@ -2260,7 +2260,7 @@
       // bootstrapを一度取りこぼしてAPI OFFLINE表示になっていても、
       // 実際のAPI応答が成功したらオンライン表示へ復帰。
       document.getElementById("onlineText").textContent =
-        "SYSTEM ONLINE V8.2.8";
+        "SYSTEM ONLINE V8.2.9";
 
       setState(
         "complete",
@@ -2363,7 +2363,7 @@
       pendingRequests[requestId] = completeBootstrap;
 
       // 直接応答が届かない時だけ使う予備経路。
-      cancelPoll = pollBootstrapResultV828_(
+      cancelPoll = pollBootstrapResultV829_(
         requestId,
         completeBootstrap,
         Number(timeoutMs || 30000)
@@ -2383,18 +2383,18 @@
         });
         form.submit();
       } catch (formError) {
-        sendFetchPostV828_(params);
+        sendFetchPostV829_(params);
       }
       return;
     }
 
     // 注文系は従来どおりPOST + JSONP。注文の安全回復処理を維持する。
     pollRequestResult_(requestId, callback, Number(timeoutMs || 30000));
-    sendFetchPostV828_(params);
+    sendFetchPostV829_(params);
   }
 
 
-  function sendFetchPostV828_(params) {
+  function sendFetchPostV829_(params) {
     fetch(
       GAS_URL,
       {
@@ -2459,7 +2459,7 @@
   }
 
 
-  function pollBootstrapResultV828_(
+  function pollBootstrapResultV829_(
     requestId,
     callback,
     timeoutMs
@@ -2493,8 +2493,8 @@
 
       pollCount++;
 
-      if (bootActiveV828_) {
-        bootPhaseV828_(62,"DATABASE SYNCHRONIZATION","GAS応答待ち... " + pollCount);
+      if (bootActiveV829_) {
+        bootPhaseV829_(62,"DATABASE SYNCHRONIZATION","GAS応答待ち... " + pollCount);
       }
 
       if (state === "processing") {
@@ -2615,7 +2615,7 @@
     // POST送信とほぼ同時に確認開始
     setTimeout(poll, 120);
 
-    return function cancelBootstrapPollV828_() {
+    return function cancelBootstrapPollV829_() {
       if (finished) return;
       finished = true;
       clearTimeout(hardTimeout);
@@ -2643,7 +2643,7 @@
       return;
     }
 
-    if (options.boot) bootPhaseV828_(58,"MENU / TABLE MATRIX","最新データを安全に同期しています");
+    if (options.boot) bootPhaseV829_(58,"MENU / TABLE MATRIX","最新データを安全に同期しています");
 
     apiRequest(
       "bootstrap",
@@ -2673,13 +2673,13 @@
         var tc = Array.isArray(preload.tables) ? preload.tables.length : 0;
         var ac = Array.isArray(preload.aliases) ? preload.aliases.length : 0;
         if (options.boot) {
-          bootModuleV828_("Menu", pc + " ITEMS", pc > 0, pc <= 0);
-          bootModuleV828_("Tables", tc + " TABLES", tc > 0, tc <= 0);
-          bootModuleV828_("Voice", ac + " ALIASES", true);
+          bootModuleV829_("Menu", pc + " ITEMS", pc > 0, pc <= 0);
+          bootModuleV829_("Tables", tc + " TABLES", tc > 0, tc <= 0);
+          bootModuleV829_("Voice", ac + " ALIASES", true);
         }
 
         document.getElementById("onlineText").textContent =
-          data.apiReady ? (liveReadyV82_ ? "LIVE READY V8.2.8" : "SYSTEM ONLINE V8.2.8") : "API KEY NEEDED";
+          data.apiReady ? (liveReadyV82_ ? "LIVE READY V8.2.9" : "SYSTEM ONLINE V8.2.9") : "API KEY NEEDED";
 
         if (SpeechRecognitionCtor) document.getElementById("clapLabel").textContent = "WAKE WORD: JARVIS";
 
@@ -3309,7 +3309,7 @@
     var transcript = String(result.normalizedTranscript || result.transcript || "").trim();
     showMessage(transcript ? ("認識：" + transcript + "\n\n" + message) : message);
 
-    document.getElementById("onlineText").textContent = "SYSTEM ONLINE V8.2.8";
+    document.getElementById("onlineText").textContent = "SYSTEM ONLINE V8.2.9";
     if (ok) setState("complete", "COMPLETE", "ORDER TURBO");
     else setState("error", "ERROR", result.resultUnknown ? "RESULT UNKNOWN" : "注文内容を確認してください");
 
@@ -3341,9 +3341,11 @@
 
   // 起動時にUIを注文専用モードとして明示。
   var loadBootstrapBaseV814_ = loadBootstrap;
-  loadBootstrap = function() {
-    loadBootstrapBaseV814_();
-    document.getElementById("onlineText").textContent = liveReadyV82_ ? "LIVE READY V8.2.8" : "LIVE ORDER V8.2.8";
+  loadBootstrap = function(options) {
+    // boot / onDoneを必ず元の処理へ渡す。
+    // ここで引数を捨てると、初期情報を取得できても
+    // bootDataReadyが更新されずローディングが永久に閉じない。
+    return loadBootstrapBaseV814_(options || {});
   };
   window.loadBootstrap = loadBootstrap;
 
@@ -3888,7 +3890,7 @@
     if (liveReadyV82_) return;
     liveReadyV82_ = true;
     liveConnectingV82_ = false;
-    document.getElementById("onlineText").textContent = "LIVE READY V8.2.8";
+    document.getElementById("onlineText").textContent = "LIVE READY V8.2.9";
     document.getElementById("clapLabel").textContent = "WAKE WORD + GPT LIVE";
     sendLiveEventV82_({
       type: "session.instructions.append",
@@ -3945,7 +3947,7 @@
     if (!sourceTrack) return;
 
     liveConnectingV82_ = true;
-    document.getElementById("onlineText").textContent = "LIVE WARMING V8.2.8";
+    document.getElementById("onlineText").textContent = "LIVE WARMING V8.2.9";
 
     try {
       var pc = new RTCPeerConnection();
@@ -3988,7 +3990,7 @@
                 if (livePcV82_ !== pc) return;
                 if (!result || result.success !== true || !result.answerSdp) {
                   closeLiveV82_(true);
-                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V8.2.8";
+                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V8.2.9";
                   return;
                 }
                 pc.setRemoteDescription({type:"answer", sdp:String(result.answerSdp)}).catch(function(){
