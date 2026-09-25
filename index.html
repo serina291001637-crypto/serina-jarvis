@@ -2,88 +2,4467 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#02070b">
+  <title>JARVIS AI ORDER 8.5.0 | SERINA</title>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <meta name="theme-color" content="#02070b">
-  <title>JARVIS // LATEST BUILD LOADER</title>
-  <style>
-    *{box-sizing:border-box}
-    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#02070b;color:#b8f6ff;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif}
-    body{display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 42%,rgba(20,132,164,.28),rgba(2,7,11,.98) 58%)}
-    .shell{width:min(86vw,390px);text-align:center}
-    .brand{font-size:31px;font-weight:300;letter-spacing:10px;text-shadow:0 0 22px rgba(84,225,255,.6)}
-    .reactor{position:relative;width:150px;height:150px;margin:28px auto 24px;border-radius:50%}
-    .ring{position:absolute;border-radius:50%;border:1px solid rgba(84,225,255,.25)}
-    .r1{inset:0;border-top-color:#9bf3ff;animation:spin 3.8s linear infinite}
-    .r2{inset:18px;border-right-color:#67e7ff;animation:spinReverse 2.5s linear infinite}
-    .r3{inset:39px;animation:pulse 1.3s ease-in-out infinite}
-    .core{position:absolute;inset:57px;border-radius:50%;background:radial-gradient(circle,#f2ffff 0,#70eaff 28%,#116b85 67%);box-shadow:0 0 24px rgba(91,228,255,.9)}
-    .status{font-size:12px;letter-spacing:2.2px;color:#7295a0}
-    .detail{min-height:18px;margin-top:10px;font-size:11px;color:#52717c}
-    .retry{display:none;width:100%;height:48px;margin-top:22px;border:1px solid rgba(100,229,255,.38);border-radius:13px;background:#0b4356;color:#c7f8ff;font-size:14px;letter-spacing:1px}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    @keyframes spinReverse{to{transform:rotate(-360deg)}}
-    @keyframes pulse{50%{transform:scale(1.08);opacity:.55}}
-  </style>
-</head>
-<body>
-  <div class="shell">
-    <div class="brand">JARVIS</div>
-    <div class="reactor"><div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div><div class="core"></div></div>
-    <div class="status" id="status">VERIFYING LATEST BUILD</div>
-    <div class="detail" id="detail">最新版を安全に取得しています</div>
-    <button class="retry" id="retry" type="button" onclick="location.reload()">再読み込み</button>
-  </div>
   <script>
-    (function(){
-      "use strict";
-      var stamp = Date.now();
-      var manifestUrl = "./version.json?__t=" + stamp;
+  (function(){
+    var version = "8.5.0";
+    var maxUrlAgeMs = 5 * 60 * 1000;
+    var now = Date.now();
+    var url;
 
-      function fail(message) {
-        document.getElementById("status").textContent = "UPDATE CHECK FAILED";
-        document.getElementById("detail").textContent = message || "通信を確認して再読み込みしてください";
-        document.getElementById("retry").style.display = "block";
+    try {
+      url = new URL(window.location.href);
+    } catch (ignore) {
+      return;
+    }
+
+    var urlVersion = String(url.searchParams.get("__jarvis") || "");
+    var urlTime = Number(url.searchParams.get("__t") || 0);
+    var hasFreshUrl =
+      urlVersion === version &&
+      urlTime > 0 &&
+      now - urlTime >= 0 &&
+      now - urlTime < maxUrlAgeMs;
+
+    if (!hasFreshUrl) {
+      url.searchParams.set("__jarvis", version);
+      url.searchParams.set("__t", String(now));
+      window.location.replace(url.toString());
+    }
+  })();
+  </script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #02070b;
+      color: #e9fbff;
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 50% 31%, rgba(19, 119, 151, .30) 0, rgba(5, 28, 41, .17) 31%, rgba(2, 7, 11, 0) 59%),
+        linear-gradient(180deg, #081722 0%, #02070b 100%);
+    }
+
+    button, input {
+      font-family: inherit;
+    }
+
+    #app {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      padding: env(safe-area-inset-top) 14px env(safe-area-inset-bottom);
+    }
+
+    .scanlines {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .065;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent 3px,
+        rgba(112, 230, 255, .18) 4px
+      );
+    }
+
+    .header {
+      flex: 0 0 auto;
+      min-height: 51px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand-main {
+      font-size: 27px;
+      font-weight: 300;
+      letter-spacing: 7px;
+      color: #a9f1ff;
+      text-shadow: 0 0 15px rgba(71, 218, 251, .55);
+    }
+
+    .brand-sub {
+      margin-top: 6px;
+      font-size: 9px;
+      letter-spacing: 2.3px;
+      color: #678995;
+    }
+
+    .header-right {
+      display: flex;
+      gap: 7px;
+      align-items: center;
+    }
+
+    .online-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #55e5ff;
+      box-shadow: 0 0 10px rgba(85,229,255,.85);
+    }
+
+    .online-text {
+      font-size: 9px;
+      letter-spacing: 1.4px;
+      color: #688b97;
+    }
+
+    .settings-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 1px solid rgba(99, 221, 249, .18);
+      background: rgba(6, 29, 40, .72);
+      color: #87dce9;
+      font-size: 17px;
+    }
+
+    .stats {
+      flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 7px;
+      margin-top: 9px;
+    }
+
+    .stat {
+      min-height: 54px;
+      border-radius: 13px;
+      border: 1px solid rgba(90, 214, 245, .14);
+      background: rgba(7, 31, 43, .57);
+      padding: 8px 10px;
+    }
+
+    .stat-label {
+      font-size: 8px;
+      letter-spacing: 1.2px;
+      color: #668791;
+    }
+
+    .stat-value {
+      margin-top: 4px;
+      font-size: 19px;
+      font-weight: 600;
+      color: #e1fbff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .main {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 7px 0;
+    }
+
+    .reactor {
+      width: 57vw;
+      height: 57vw;
+      max-width: 238px;
+      max-height: 238px;
+      min-width: 170px;
+      min-height: 170px;
+      border-radius: 50%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(101, 228, 255, .38);
+      box-shadow:
+        inset 0 0 32px rgba(40, 181, 216, .11),
+        0 0 37px rgba(39, 193, 230, .12);
+    }
+
+    .reactor:before,
+    .reactor:after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid rgba(105, 231, 255, .16);
+    }
+
+    .reactor:before { inset: 12%; }
+    .reactor:after { inset: 25%; }
+
+    .reactor-core {
+      z-index: 2;
+      width: 24%;
+      height: 24%;
+      border-radius: 50%;
+      background: radial-gradient(circle, #ebfeff 0, #70eaff 20%, #0e6c87 50%, rgba(4, 28, 38, .15) 76%);
+      box-shadow:
+        0 0 16px rgba(108, 238, 255, .9),
+        0 0 52px rgba(65, 207, 240, .34);
+    }
+
+    .reactor.listening .reactor-core {
+      animation: listenPulse .72s infinite alternate;
+    }
+
+    .reactor.processing .reactor-core {
+      animation: processingPulse .6s infinite ease-in-out;
+    }
+
+    .reactor.complete .reactor-core {
+      background: radial-gradient(circle, #effff6 0, #83f5b7 25%, #168957 57%, rgba(4, 28, 38, .15) 77%);
+      box-shadow:
+        0 0 17px rgba(129, 255, 188, .95),
+        0 0 53px rgba(54, 233, 140, .43);
+    }
+
+    .reactor.error .reactor-core {
+      background: radial-gradient(circle, #fff 0, #ff8989 24%, #9a2929 58%, rgba(4, 28, 38, .15) 77%);
+      box-shadow:
+        0 0 17px rgba(255, 127, 127, .95),
+        0 0 52px rgba(255, 69, 69, .36);
+    }
+
+    @keyframes listenPulse {
+      from { transform: scale(.95); }
+      to { transform: scale(1.38); box-shadow: 0 0 27px rgba(108,238,255,1), 0 0 78px rgba(65,207,240,.58); }
+    }
+
+    @keyframes processingPulse {
+      0%, 100% { transform: scale(.86); opacity: .72; }
+      50% { transform: scale(1.23); opacity: 1; }
+    }
+
+    .state-title {
+      margin-top: 17px;
+      font-size: 22px;
+      letter-spacing: 4px;
+      color: #a7effb;
+      text-align: center;
+    }
+
+    .state-sub {
+      min-height: 38px;
+      max-width: 94%;
+      margin-top: 7px;
+      text-align: center;
+      color: #75939f;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .message-box {
+      width: 100%;
+      max-height: 132px;
+      overflow-y: auto;
+      display: none;
+      margin-top: 7px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(90, 216, 247, .12);
+      background: rgba(5, 25, 35, .48);
+      color: #d9f7fc;
+      font-size: 15px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .footer {
+      flex: 0 0 auto;
+      padding-bottom: 7px;
+    }
+
+    .clap-status {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 8px;
+      color: #607d88;
+      font-size: 10px;
+      letter-spacing: 1.55px;
+    }
+
+    .clap-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #49dcf7;
+      box-shadow: 0 0 9px rgba(73,220,247,.72);
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .input-row input {
+      flex: 1;
+      min-width: 0;
+      height: 50px;
+      border-radius: 14px;
+      border: 1px solid rgba(98, 220, 250, .18);
+      outline: none;
+      background: rgba(6, 27, 38, .87);
+      color: white;
+      padding: 0 14px;
+      font-size: 16px;
+    }
+
+    .input-row input:focus {
+      border-color: rgba(98, 220, 250, .56);
+    }
+
+    .icon-btn {
+      flex: 0 0 53px;
+      height: 50px;
+      border-radius: 14px;
+      border: 1px solid rgba(93, 218, 246, .20);
+      background: rgba(8, 48, 63, .9);
+      color: #e8ffff;
+      font-size: 19px;
+    }
+
+    .send-btn {
+      border: 0;
+      background: linear-gradient(145deg, #1682a2, #095169);
+    }
+
+    .start-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 22px;
+      background:
+        radial-gradient(circle at center, rgba(10, 74, 96, .40), rgba(2, 7, 11, .97) 64%);
+    }
+
+    .start-panel {
+      width: 92vw;
+      max-width: 430px;
+      border-radius: 22px;
+      border: 1px solid rgba(97, 226, 255, .30);
+      background: rgba(5, 25, 35, .94);
+      box-shadow: 0 0 46px rgba(44, 194, 230, .14);
+      padding: 29px 20px;
+      text-align: center;
+    }
+
+    .start-title {
+      font-size: 29px;
+      font-weight: 300;
+      letter-spacing: 7px;
+      color: #a7f0fb;
+    }
+
+    .start-text {
+      margin: 17px auto 15px;
+      max-width: 330px;
+      color: #7d9aa5;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .pair-input {
+      width: 100%;
+      height: 48px;
+      margin-bottom: 10px;
+      border-radius: 13px;
+      border: 1px solid rgba(97,226,255,.22);
+      outline: none;
+      background: rgba(2,16,23,.78);
+      color: #eaffff;
+      padding: 0 13px;
+      font-size: 14px;
+    }
+
+    .pair-hint {
+      min-height: 18px;
+      margin-bottom: 10px;
+      color: #6f919c;
+      font-size: 11px;
+    }
+
+    .start-button {
+      width: 100%;
+      height: 59px;
+      border-radius: 16px;
+      border: 1px solid rgba(104, 233, 255, .42);
+      background: linear-gradient(145deg, #1481a1, #0a4c63);
+      color: white;
+      letter-spacing: 2px;
+      font-size: 17px;
+    }
+
+
+    /* v8.5.0 futuristic initialization overlay */
+    .boot-overlay {
+      position: fixed; inset: 0; z-index: 80; display: none;
+      align-items: center; justify-content: center; padding: 24px;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(22,137,170,.26), rgba(2,7,11,.96) 54%, #02070b 100%);
+      overflow: hidden;
+    }
+    .boot-overlay.show { display: flex; }
+    .boot-overlay:before {
+      content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .16;
+      background-image:
+        linear-gradient(rgba(84,220,255,.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(84,220,255,.08) 1px, transparent 1px);
+      background-size: 28px 28px;
+      animation: bootGrid 8s linear infinite;
+    }
+    .boot-shell { width: min(88vw, 430px); text-align: center; position: relative; z-index: 2; }
+    .boot-brand { font-size: 31px; font-weight: 300; letter-spacing: 10px; color: #b6f5ff; text-shadow: 0 0 22px rgba(84,225,255,.58); }
+    .boot-version { margin-top: 7px; font-size: 10px; letter-spacing: 2.5px; color: #567d8b; }
+    .boot-reactor { width: 190px; height: 190px; margin: 28px auto 22px; border-radius: 50%; position: relative; display:flex; align-items:center; justify-content:center; }
+    .boot-ring { position:absolute; border-radius:50%; border:1px solid rgba(84,225,255,.28); }
+    .boot-ring.r1 { inset:0; animation: bootSpin 5s linear infinite; border-top-color: rgba(158,245,255,.95); }
+    .boot-ring.r2 { inset:18px; animation: bootSpinReverse 3.2s linear infinite; border-right-color: rgba(92,232,255,.92); }
+    .boot-ring.r3 { inset:39px; animation: bootPulse 1.4s ease-in-out infinite; }
+    .boot-core { width:58px; height:58px; border-radius:50%; background:radial-gradient(circle,#f1ffff 0,#78ebff 22%,#13718c 52%,rgba(4,28,38,.1) 75%); box-shadow:0 0 22px rgba(111,238,255,.95),0 0 62px rgba(54,203,238,.42); }
+    .boot-title { font-size: 18px; letter-spacing: 4px; color:#a8eef9; }
+    .boot-detail { min-height: 22px; margin-top:9px; font-size:12px; letter-spacing:.8px; color:#6f929f; }
+    .boot-progress { height: 5px; margin: 21px auto 15px; border-radius: 99px; overflow:hidden; border:1px solid rgba(86,218,248,.18); background:rgba(4,28,38,.88); }
+    .boot-progress-bar { height:100%; width:0%; background:linear-gradient(90deg,rgba(46,170,205,.75),#9bf3ff); box-shadow:0 0 16px rgba(100,232,255,.75); transition:width .32s ease; }
+    .boot-modules { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+    .boot-module { min-height:48px; padding:7px 3px; border-radius:9px; border:1px solid rgba(82,211,241,.13); background:rgba(4,26,36,.58); }
+    .boot-module-name { font-size:8px; letter-spacing:1px; color:#50717d; }
+    .boot-module-state { margin-top:6px; font-size:9px; color:#698b97; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .boot-module.ok { border-color:rgba(83,240,168,.24); }
+    .boot-module.ok .boot-module-state { color:#8df0bd; }
+    .boot-module.warn .boot-module-state { color:#ffd58a; }
+    .boot-retry {
+      display:none; width:100%; height:46px; margin-top:14px;
+      border:1px solid rgba(105,229,255,.34); border-radius:12px;
+      background:rgba(8,55,70,.88); color:#b9f5ff;
+      font-size:13px; letter-spacing:1.6px;
+    }
+    .boot-retry.show { display:block; }
+    @keyframes bootSpin { to { transform:rotate(360deg); } }
+    @keyframes bootSpinReverse { to { transform:rotate(-360deg); } }
+    @keyframes bootPulse { 0%,100%{transform:scale(.96);opacity:.48} 50%{transform:scale(1.05);opacity:1} }
+    @keyframes bootGrid { to { transform:translateY(28px); } }
+
+    .settings-panel {
+      position: fixed;
+      z-index: 30;
+      top: 0;
+      right: -300px;
+      width: 288px;
+      height: 100%;
+      padding: 70px 18px 20px;
+      background: rgba(4, 20, 28, .985);
+      border-left: 1px solid rgba(91, 219, 248, .17);
+      transition: right .18s ease;
+    }
+
+    .settings-panel.open { right: 0; }
+
+    .settings-title {
+      color: #9eefff;
+      font-size: 13px;
+      letter-spacing: 1.8px;
+      margin-bottom: 20px;
+    }
+
+    .setting-block {
+      margin-bottom: 19px;
+    }
+
+    .setting-line {
+      display: flex;
+      justify-content: space-between;
+      color: #77949f;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .setting-block input[type="range"] {
+      width: 100%;
+    }
+
+    .setting-button {
+      width: 100%;
+      height: 44px;
+      margin-top: 7px;
+      border-radius: 12px;
+      border: 1px solid rgba(96, 221, 250, .20);
+      background: rgba(7, 38, 50, .82);
+      color: #a8eef9;
+    }
+
+    .pair-status {
+      color: #7a9aa6;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    #gasTransportFrame {
+      display: none;
+      width: 1px;
+      height: 1px;
+      border: 0;
+    }
+
+    @media (min-width: 700px) {
+      #app {
+        max-width: 760px;
+        margin: 0 auto;
       }
 
-      fetch(manifestUrl, {cache:"no-store", credentials:"same-origin"})
-        .then(function(response){
-          if (!response.ok) throw new Error("version.json: " + response.status);
-          return response.json();
-        })
-        .then(function(manifest){
-          var version = String(manifest && manifest.version || "").trim();
-          var entry = String(manifest && manifest.entry || "").trim();
-          if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error("invalid version");
-          if (!/^[A-Za-z0-9._-]+\.html$/.test(entry)) throw new Error("invalid entry");
+      .reactor {
+        width: 250px;
+        height: 250px;
+      }
 
-          document.getElementById("status").textContent = "LOADING BUILD " + version;
-          document.getElementById("detail").textContent = "JARVIS本体を展開しています";
+      .message-box {
+        max-width: 650px;
+      }
+    }
+  /* Actual visible height, safe areas and graceful scrolling on small screens. */
+html,body{overflow-x:hidden;overflow-y:auto;height:auto;min-height:100%;-webkit-text-size-adjust:100%}
+#app{height:auto;min-height:var(--app-height,100vh);max-width:960px;margin:0 auto;padding:8px 12px 12px;padding-top:max(8px,env(safe-area-inset-top));padding-bottom:max(12px,env(safe-area-inset-bottom))}
+.header{flex-wrap:wrap;gap:6px}.header-right{min-width:0}.online-text{font-size:9px;letter-spacing:.5px}.brand-main{font-size:24px;letter-spacing:5px}.brand-sub{font-size:8px}
+.main{min-height:0;justify-content:flex-start;padding:12px 0;flex:1 0 auto}.reactor{flex:none;width:150px;height:150px;min-width:0;min-height:0;margin:10px auto;max-width:40vw;max-height:40vw}
+.state-title{margin-top:6px;font-size:21px;letter-spacing:2px}.state-sub{min-height:0;font-size:14px;margin:6px 0;overflow-wrap:break-word}
+.message-box{flex:none;max-height:240px;max-height:36vh;min-height:44px;font-size:16px;overflow-wrap:break-word;-webkit-overflow-scrolling:touch}
+.footer{margin-top:auto;position:sticky;bottom:0;background:#06131c;padding:8px 0;z-index:5}.input-row{width:100%}#textInput{min-width:0;font-size:16px}.icon-btn{min-height:44px;min-width:44px}
+.agent-controls{display:flex;flex-wrap:wrap;margin:6px 0;gap:6px}.agent-controls button{flex:1;min-height:44px;padding:8px;border:1px solid #26788a;border-radius:10px;background:#092e3c;color:#dffbff;font-size:14px;touch-action:manipulation}
+.agent-controls button:disabled{opacity:.45}#confirmControls850 button:first-child{background:#135b44}#captureControls850 button:first-child{background:#135365}
+#recordStatus850{width:100%;font-size:13px;color:#9ae9f8;text-align:center}
+.start-overlay,.boot-overlay{height:var(--app-height,100vh);overflow-y:auto;-webkit-overflow-scrolling:touch;align-items:flex-start;padding:20px 12px}
+.start-panel,.boot-shell{margin:auto;max-width:100%;flex-shrink:0}.start-title{font-size:34px}.start-text{font-size:14px}.boot-reactor{width:140px;height:140px;margin:15px auto}.boot-brand{font-size:30px}.boot-version{letter-spacing:1px;font-size:10px}.boot-title{font-size:20px;letter-spacing:2px}.boot-detail{font-size:14px;min-height:0}.boot-modules{gap:5px}.boot-module{padding:8px 3px}
+.settings-panel{max-height:calc(var(--app-height,100vh) - 30px);overflow-y:auto;max-width:calc(100vw - 20px);-webkit-overflow-scrolling:touch}
+html[data-compact=true] .reactor{width:86px;height:86px;margin:2px auto}
+html[data-compact=true] .main{padding:4px 0}
+html[data-compact=true] .brand-main{font-size:20px;letter-spacing:3px}
+html[data-compact=true] .stat{min-height:43px;padding:5px 7px}
+html[data-compact=true] .stat-value{font-size:17px;margin-top:1px}
+html[data-compact=true] .state-title{font-size:18px;margin-top:4px}
+html[data-compact=true] .clap-status{margin-bottom:4px;letter-spacing:.5px}
+html[data-compact=true] .boot-reactor{width:90px;height:90px;margin:8px auto}
+html[data-short=true] .reactor,html[data-short=true] .brand-sub{display:none}
+@media(min-width:700px) and (min-height:700px){.reactor{width:220px;height:220px}.message-box{max-width:800px;max-height:40vh}.main{padding:24px 0}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important}}
+/* iOS 12/13 lack CSS inset and flex gap support. */
+.start-overlay,.boot-overlay,.scanlines{top:0;right:0;bottom:0;left:0}
+.reactor:before{top:12%;right:12%;bottom:12%;left:12%}.reactor:after{top:25%;right:25%;bottom:25%;left:25%}
+.agent-controls button+button{margin-left:4px}.header-right>*+*{margin-left:5px}
+html[data-compact=true] .scanlines{display:none}
 
-          return fetch("./" + entry + "?__jarvis=" + encodeURIComponent(version) + "&__t=" + Date.now(), {
-            cache:"no-store",
-            credentials:"same-origin"
-          }).then(function(response){
-            if (!response.ok) throw new Error(entry + ": " + response.status);
-            return response.text().then(function(html){
-              return {html:html, version:version};
-            });
-          });
-        })
-        .then(function(result){
-          try {
-            history.replaceState(null, "", window.location.pathname + "?__jarvis=" + encodeURIComponent(result.version) + "&__t=" + Date.now());
-          } catch (ignore) {}
-          document.open();
-          document.write(result.html);
-          document.close();
-        })
-        .catch(function(error){
-          fail("最新版を取得できませんでした：" + String(error && error.message || error));
+</style>
+</head>
+
+<body>
+<div id="app">
+  <div class="header">
+    <div>
+      <div class="brand-main">JARVIS</div>
+      <div class="brand-sub">SERINA AI SYSTEM</div>
+    </div>
+
+    <div class="header-right">
+      <div class="online-dot"></div>
+      <div class="online-text" id="onlineText">BOOTING V8.5.0</div>
+      <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">OPEN ORDERS</div>
+      <div class="stat-value" id="orderCount">--</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">ACTIVE TABLES</div>
+      <div class="stat-value" id="tableCount">--</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">DEVICE</div>
+      <div class="stat-value" id="deviceLabel">--</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="reactor" id="reactor">
+      <div class="reactor-core"></div>
+    </div>
+
+    <div class="state-title" id="stateTitle">OFFLINE</div>
+    <div class="state-sub" id="stateSub">SYSTEM STARTを押してください</div>
+    <div class="message-box" id="messageBox"></div>
+  </div>
+
+  <div class="footer">
+    <div class="clap-status">
+      <span class="clap-dot"></span>
+      <span id="clapLabel">WAKE WORD: JARVIS</span>
+    </div>
+
+    <div class="agent-controls" id="captureControls850" style="display:none"><span id="recordStatus850" role="status">録音中</span><button type="button" onclick="finishVoice850()">話し終わったら送信</button><button type="button" onclick="cancelVoice850()">録音取消</button></div>
+<div class="agent-controls" id="confirmControls850" style="display:none"><button type="button" onclick="confirmAgent850('はい')">はい・確定</button><button type="button" onclick="confirmAgent850('いいえ')">いいえ・取消</button></div>
+<div class="agent-controls"><button type="button" onclick="quickQuery850('全体の注文を確認')">全卓の未提供</button><button type="button" onclick="quickQuery850('重複注文を確認')">複数注文</button><button id="repeatReply850" type="button" disabled onclick="repeatReply850()">再読上げ</button></div>
+<div class="input-row">
+      <button class="icon-btn" type="button" onclick="manualListen()">🎙</button>
+      <input id="textInput" type="text" autocomplete="off" placeholder="JARVISに指示...">
+      <button class="icon-btn send-btn" type="button" onclick="manualSend()">➤</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="boot-overlay" id="bootOverlay" aria-live="polite">
+  <div class="boot-shell">
+    <div class="boot-brand">JARVIS</div>
+    <div class="boot-version">SERINA CORE // BOOT SEQUENCE 8.5.0</div>
+    <div class="boot-reactor">
+      <div class="boot-ring r1"></div><div class="boot-ring r2"></div><div class="boot-ring r3"></div>
+      <div class="boot-core"></div>
+    </div>
+    <div class="boot-title" id="bootTitle">SYSTEM INITIALIZATION</div>
+    <div class="boot-detail" id="bootDetail">芹菜オーダーシステムを起動しています</div>
+    <div class="boot-progress"><div class="boot-progress-bar" id="bootProgressBar"></div></div>
+    <div class="boot-modules">
+      <div class="boot-module" id="bootModuleMic"><div class="boot-module-name">MIC</div><div class="boot-module-state">WAIT</div></div>
+      <div class="boot-module" id="bootModuleMenu"><div class="boot-module-name">MENU</div><div class="boot-module-state">WAIT</div></div>
+      <div class="boot-module" id="bootModuleTables"><div class="boot-module-name">TABLES</div><div class="boot-module-state">WAIT</div></div>
+      <div class="boot-module" id="bootModuleVoice"><div class="boot-module-name">VOICE</div><div class="boot-module-state">WAIT</div></div>
+    </div>
+    <button class="boot-retry" id="bootRetryButton" type="button" onclick="window.location.reload()">RELOAD JARVIS</button>
+  </div>
+</div>
+
+<div class="scanlines"></div>
+
+<div class="start-overlay" id="startOverlay">
+  <div class="start-panel">
+    <div class="start-title">JARVIS</div>
+    <div class="start-text">
+      起動するとマイクを待機状態にします。<br>
+      「ジャービス」と呼ぶと「はい」→ 音声命令を開始します。<br><br>
+      初回だけGASで発行したペアリングトークンを保存してください。
+    </div>
+
+    <input
+      class="pair-input"
+      id="pairTokenInput"
+      type="password"
+      autocomplete="off"
+      autocapitalize="off"
+      spellcheck="false"
+      placeholder="初回のみ：ペアリングトークン"
+    >
+    <div class="pair-hint" id="pairHint">未ペアリング</div>
+
+    <button class="start-button" type="button" onclick="startSystem()">SYSTEM START</button>
+  </div>
+</div>
+
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-title">SYSTEM SETTINGS</div>
+
+  <div class="setting-block">
+    <div class="setting-line">
+      <span>音声感度</span>
+      <span id="sensitivityText">6</span>
+    </div>
+    <input id="sensitivity" type="range" min="1" max="10" value="6" oninput="changeSensitivity()">
+  </div>
+
+  <div class="setting-block">
+    <div class="setting-line">
+      <span>音声回答</span>
+      <span id="voiceText">ON</span>
+    </div>
+    <button class="setting-button" type="button" onclick="toggleVoice()">音声回答 ON / OFF</button>
+  </div>
+
+  <div class="setting-block">
+    <div class="setting-line">
+      <span>端末ペアリング</span>
+      <span id="pairStateText">未設定</span>
+    </div>
+    <div class="pair-status">トークンはこの端末内だけに保存され、GitHubには保存されません。</div>
+    <button class="setting-button" type="button" onclick="changePairingToken()">ペアリングトークン変更</button>
+  </div>
+
+  <div class="setting-block">
+    <button class="setting-button" type="button" onclick="loadBootstrap()">接続状態を更新</button>
+    <button class="setting-button" type="button" onclick="toggleSettings()">閉じる</button>
+  </div>
+</div>
+
+<iframe id="gasTransportFrame" name="gasTransportFrame" title="JARVIS Transport"></iframe>
+<form id="gasTransportForm" method="post" target="gasTransportFrame" style="display:none"></form>
+
+<script>
+(function() {
+  "use strict";
+
+  var GAS_URL = "https://script.google.com/macros/s/AKfycbzi6xOnWBPx2xbSKkVL0JQSMg6nJzxct6-HlGe5PPuLh4vPX8tgfbiLkrdQsz4ucYeLCQ/exec";
+  var TOKEN_STORAGE_KEY = "serinaJarvisPairingToken";
+  var SENSITIVITY_STORAGE_KEY = "serinaJarvisSensitivity";
+
+  var state = "offline";
+  var busy = false;
+  var voiceEnabled = true;
+  var clapEnabled = true;
+  var sensitivity = 6;
+  var micReady = false;
+
+  var deviceId = detectDeviceId();
+  var deviceLabel = detectDeviceLabel();
+
+  var micStream = null;
+  var audioContext = null;
+  var analyser = null;
+  var audioData = null;
+  var frequencyData = null;
+
+  var clapHighpass = null;
+  var clapAnalyser = null;
+  var clapHighData = null;
+
+  var monitorInterval = null;
+  var noiseFloor = 0.018;
+  var highNoiseFloor = 0.006;
+  var firstClapAt = 0;
+  var lastTransientAt = 0;
+  var clapPulseStart = 0;
+  var clapPulseMaxCrest = 0;
+  var clapPulseMaxHighRatio = 0;
+
+  var mediaRecorder = null;
+  var recordedChunks = [];
+
+  var SpeechRecognitionCtor =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition ||
+    null;
+
+  // v8.5.0 HIGH ACCURACY + iPhone SE AUDIO FIX:
+  // ウェイクワードだけWeb Speechを使用する。
+  // 注文本文は必ずMediaRecorderで録音し、GAS経由のgpt-4o-transcribeで文字起こしする。
+  // Web Speech / GPT Liveの注文文字列だけで登録しない。
+  function detectIOSMajorVersionV815_() {
+    var ua = String(navigator.userAgent || "");
+    if (!/(iPhone|iPad|iPod)/i.test(ua)) return 0;
+    var m = ua.match(/OS\s+(\d+)[_\.](\d+)/i);
+    return m ? (parseInt(m[1], 10) || 0) : 0;
+  }
+
+  var iosMajorVersionV815_ = detectIOSMajorVersionV815_();
+  var legacyIOSCommandRecorderV815_ =
+    iosMajorVersionV815_ > 0 && iosMajorVersionV815_ <= 15;
+
+  var recognition = null;
+  var recognitionRunning = false;
+  var recognitionGotFinal = false;
+  var recognitionFallbackStarted = false;
+  var recognitionHardTimer = null;
+
+  var wakeRecognition = null;
+  var wakeRecognitionRunning = false;
+  var wakeRestartTimer = null;
+
+  var commandDeadlineTimer = null;
+  var commandSpeechDetected = false;
+  var commandSpeechActiveSince = 0;
+  var commandSpeechAccumulatedMs = 0;
+  var commandModeActive = false;
+
+  var WAKE_WORDS = [
+    "ジャービス",
+    "ジャーヴィス",
+    "jarvis"
+  ];
+
+  var calibratingUntil = 0;
+  var quietSince = 0;
+  var speechLikeSince = 0;
+  var recordingStartedAt = 0;
+  var speechDetected = false;
+  var silenceStartedAt = 0;
+  var recordingStopRequested = false;
+
+  var pendingRequests = {};
+
+  var CLAP_MIN_GAP = 220;
+  var CLAP_MAX_GAP = 700;
+  var TRANSIENT_REFRACTORY = 150;
+  var CLAP_MIN_PULSE_MS = 8;
+  var CLAP_MAX_PULSE_MS = 115;
+  var CLAP_REQUIRED_QUIET_MS = 70;
+  var MAX_RECORD_MS = 10000;
+  // iPhone SEではAudioContextのRMSが0付近になることがある。
+  // VADが反応しなくても注文全文を録音できるよう6秒確保する。
+  var NO_SPEECH_TIMEOUT_MS = 6000;
+  var END_SILENCE_MS = 850;
+
+  var APP_VERSION = "8.5.0";
+  var bootActiveV850_ = false;
+  var bootMicReadyV850_ = false;
+  var bootCalibratedV850_ = false;
+  var bootDataReadyV850_ = false;
+  var bootStartedAtV850_ = 0;
+
+  function showBootOverlayV850_() {
+    bootActiveV850_ = true; bootStartedAtV850_ = Date.now();
+    bootMicReadyV850_ = false; bootCalibratedV850_ = false; bootDataReadyV850_ = false;
+    var el=document.getElementById("bootOverlay"); if(el) el.className="boot-overlay show";
+    var retry=document.getElementById("bootRetryButton"); if(retry) retry.className="boot-retry";
+    bootPhaseV850_(6,"SYSTEM INITIALIZATION","セキュアセッションを準備しています");
+    bootModuleV850_("Mic","WAIT",false); bootModuleV850_("Menu","WAIT",false); bootModuleV850_("Tables","WAIT",false); bootModuleV850_("Voice","WAIT",false);
+  }
+
+  function bootPhaseV850_(percent,title,detail) {
+    var bar=document.getElementById("bootProgressBar"); if(bar) bar.style.width=Math.max(0,Math.min(100,Number(percent||0)))+"%";
+    var t=document.getElementById("bootTitle"); if(t) t.textContent=String(title||"");
+    var d=document.getElementById("bootDetail"); if(d) d.textContent=String(detail||"");
+  }
+
+  function bootModuleV850_(name,text,ok,warn) {
+    var el=document.getElementById("bootModule"+name); if(!el) return;
+    el.className="boot-module"+(ok?" ok":(warn?" warn":""));
+    var s=el.querySelector(".boot-module-state"); if(s) s.textContent=String(text||"");
+  }
+
+  function bootMaybeReadyV850_() {
+    if(!bootActiveV850_ || !bootMicReadyV850_ || !bootCalibratedV850_ || !bootDataReadyV850_) return;
+    firstClapAt = 0; resetClapPulse_(); quietSince = Date.now();
+    setState("standby","STANDBY",SpeechRecognitionCtor ? "「ジャービス」と呼んでください" : "マイクボタンから音声入力できます");
+    bootPhaseV850_(100,"JARVIS ONLINE","Menu / Tables / Voice dictionary synchronized");
+    if (SpeechRecognitionCtor) setTimeout(startWakeWordRecognition_, 350);
+    setTimeout(function(){
+      var el=document.getElementById("bootOverlay"); if(el) el.className="boot-overlay";
+      bootActiveV850_=false;
+    }, Math.max(520, 1150-(Date.now()-bootStartedAtV850_)));
+  }
+
+  window.addEventListener("load", function() {
+    document.getElementById("deviceLabel").textContent = deviceLabel;
+    setupInput();
+    setupTransportListener();
+
+    var savedSensitivity = Number(localStorage.getItem(SENSITIVITY_STORAGE_KEY) || 0);
+    if (savedSensitivity >= 1 && savedSensitivity <= 10) {
+      sensitivity = savedSensitivity;
+    }
+
+    document.getElementById("sensitivity").value = sensitivity;
+    document.getElementById("sensitivityText").textContent = String(sensitivity);
+
+    updatePairingUi();
+
+    if (getPairingToken()) {
+      document.getElementById("onlineText").textContent = "READY TO START V8.5.0";
+    } else {
+      document.getElementById("onlineText").textContent = "PAIRING NEEDED";
+    }
+  });
+
+
+  function detectDeviceId() {
+    var ua = navigator.userAgent || "";
+
+    if (/iPhone/i.test(ua)) return "IPHONE_LEGACY";
+    if (/Windows/i.test(ua)) return "WIN_MAIN";
+    return "BROWSER_" + Math.random().toString(36).slice(2, 8).toUpperCase();
+  }
+
+
+  function detectDeviceLabel() {
+    var ua = navigator.userAgent || "";
+
+    if (/iPhone/i.test(ua)) return "iPhone";
+    if (/Windows/i.test(ua)) return "Windows";
+    return "Browser";
+  }
+
+
+  function getPairingToken() {
+    return String(localStorage.getItem(TOKEN_STORAGE_KEY) || "").trim();
+  }
+
+
+  function savePairingToken(value) {
+    var token = String(value || "").trim();
+
+    if (!token) return false;
+
+    localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    document.getElementById("pairTokenInput").value = "";
+    updatePairingUi();
+    return true;
+  }
+
+
+  function updatePairingUi() {
+    var paired = !!getPairingToken();
+
+    document.getElementById("pairHint").textContent =
+      paired ? "この端末はペアリング済みです" : "未ペアリング";
+
+    document.getElementById("pairStateText").textContent =
+      paired ? "設定済み" : "未設定";
+
+    document.getElementById("pairTokenInput").placeholder =
+      paired ? "ペアリング済み（変更時だけ入力）" : "初回のみ：ペアリングトークン";
+  }
+
+
+  window.startSystem = function() {
+    var typedToken = document.getElementById("pairTokenInput").value;
+
+    if (typedToken) savePairingToken(typedToken);
+
+    if (!getPairingToken()) {
+      setState("error", "PAIRING REQUIRED", "ペアリングトークンを入力してください");
+      document.getElementById("pairHint").textContent = "GASで発行したトークンが必要です";
+      return;
+    }
+
+    showBootOverlayV850_();
+    setState("processing", "STARTING", "JARVISを初期化しています...");
+    unlockSpeech();
+    bootPhaseV850_(12,"MICROPHONE LINK","音声入力回路を初期化しています");
+
+    startAudioMonitor(function(ok, message) {
+      if (!ok) {
+        bootModuleV850_("Mic","ERROR",false,true);
+        bootPhaseV850_(100,"MICROPHONE ERROR",message || "マイクを開始できません");
+        setState("error", "MIC ERROR", message || "マイクを開始できません。");
+        return;
+      }
+
+      micReady = true;
+      bootMicReadyV850_ = true;
+      bootModuleV850_("Mic","LINKED",true);
+      document.getElementById("startOverlay").style.display = "none";
+
+      // Menu / Tables / VoiceAliases はマイク校正と並列で最新値を取得。
+      bootPhaseV850_(34,"DATABASE SYNCHRONIZATION","最新のMenu / Tablesを取得しています");
+      loadBootstrap({
+        boot:true,
+        onDone:function(okBoot, dataBoot) {
+          if (!okBoot) {
+            bootModuleV850_("Menu","RETRY",false,true);
+            bootModuleV850_("Tables","RETRY",false,true);
+            bootModuleV850_("Voice","RETRY",false,true);
+            setTimeout(function(){
+              loadBootstrap({boot:true,onDone:function(okRetry,dataRetry){
+                if(!okRetry){
+                  var cached = !!liveMenuV82_;
+                  bootModuleV850_("Menu",cached?"CACHE":"ERROR",cached,!cached);
+                  bootModuleV850_("Tables",cached?"CACHE":"ERROR",cached,!cached);
+                  bootModuleV850_("Voice",cached?"CACHE":"ERROR",cached,!cached);
+                  if(cached){ bootDataReadyV850_=true; bootPhaseV850_(86,"CACHE FALLBACK","通信不良のため端末キャッシュで起動します"); bootMaybeReadyV850_(); }
+                  else {
+                    bootPhaseV850_(100,"DATABASE OFFLINE","Menu / Tablesを取得できませんでした。再読み込みしてください");
+                    var retry=document.getElementById("bootRetryButton"); if(retry) retry.className="boot-retry show";
+                  }
+                }
+              }});
+            },900);
+            return;
+          }
+          bootDataReadyV850_ = true;
+          bootPhaseV850_(82,"DICTIONARY COMPILE","注文用辞書を構築しています");
+          bootMaybeReadyV850_();
+        }
+      });
+
+      calibratingUntil = Date.now() + 1100;
+      setState("calibrating", "CALIBRATING", "約1秒、静かにして環境音を測定します...");
+      bootPhaseV850_(48,"AUDIO CALIBRATION","環境音レベルを測定しています");
+
+      setTimeout(function() {
+        bootCalibratedV850_ = true;
+        bootModuleV850_("Mic","CALIBRATED",true);
+        if (!bootDataReadyV850_) bootPhaseV850_(62,"DATABASE SYNCHRONIZATION","Menu / Tables / VoiceAliases を待機しています");
+        bootMaybeReadyV850_();
+      }, 1150);
+    });
+  };
+
+
+  function startAudioMonitor(done) {
+    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+      done(false, "このブラウザではマイクを利用できません。");
+      return;
+    }
+
+    navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      },
+      video: false
+    }).then(function(stream) {
+      micStream = stream;
+
+      var AC = window.AudioContext || window.webkitAudioContext;
+
+      if (!AC) {
+        done(false, "AudioContextに対応していません。");
+        return;
+      }
+
+      audioContext = new AC();
+
+      if (audioContext.state === "suspended") {
+        audioContext.resume();
+      }
+
+      var source = audioContext.createMediaStreamSource(stream);
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.15;
+      source.connect(analyser);
+
+      // 拍手専用：人の声の主成分を落として高域の衝撃音を見る
+      clapHighpass = audioContext.createBiquadFilter();
+      clapHighpass.type = "highpass";
+      clapHighpass.frequency.value = 1800;
+      clapHighpass.Q.value = 0.7;
+
+      clapAnalyser = audioContext.createAnalyser();
+      clapAnalyser.fftSize = 1024;
+      clapAnalyser.smoothingTimeConstant = 0.05;
+
+      source.connect(clapHighpass);
+      clapHighpass.connect(clapAnalyser);
+
+      audioData = new Uint8Array(analyser.fftSize);
+      frequencyData = new Uint8Array(analyser.frequencyBinCount);
+      clapHighData = new Uint8Array(clapAnalyser.fftSize);
+
+      if (monitorInterval) clearInterval(monitorInterval);
+      monitorInterval = setInterval(sampleAudio, 20);
+
+      done(true);
+    }).catch(function(err) {
+      done(
+        false,
+        "マイク権限を確認してください。 " +
+        (err && err.message ? err.message : "")
+      );
+    });
+  }
+
+
+  function readAudioMetrics() {
+    if (!analyser || !audioData) {
+      return {
+        rms: 0,
+        peak: 0,
+        crest: 0,
+        highRms: 0,
+        highPeak: 0,
+        highRatio: 0
+      };
+    }
+
+    analyser.getByteTimeDomainData(audioData);
+
+    var sum = 0;
+    var peak = 0;
+
+    for (var i = 0; i < audioData.length; i++) {
+      var v = (audioData[i] - 128) / 128;
+      var abs = Math.abs(v);
+
+      sum += v * v;
+      if (abs > peak) peak = abs;
+    }
+
+    var rms = Math.sqrt(sum / audioData.length);
+
+    var highRms = 0;
+    var highPeak = 0;
+
+    if (clapAnalyser && clapHighData) {
+      clapAnalyser.getByteTimeDomainData(clapHighData);
+
+      var highSum = 0;
+
+      for (var j = 0; j < clapHighData.length; j++) {
+        var hv = (clapHighData[j] - 128) / 128;
+        var habs = Math.abs(hv);
+
+        highSum += hv * hv;
+        if (habs > highPeak) highPeak = habs;
+      }
+
+      highRms =
+        Math.sqrt(highSum / clapHighData.length);
+    }
+
+    return {
+      rms: rms,
+      peak: peak,
+      crest: peak / Math.max(rms, 0.005),
+      highRms: highRms,
+      highPeak: highPeak,
+      highRatio: highRms / Math.max(rms, 0.006)
+    };
+  }
+
+
+  function sampleAudio() {
+    if (!analyser || !audioData) return;
+
+    var metrics = readAudioMetrics();
+
+    if (state === "calibrating") {
+      calibrateNoiseFloor_(metrics);
+      return;
+    }
+
+    // v5: STANDBY中は拍手を使わずウェイクワードで起動。
+    if (state === "standby") {
+      return;
+    }
+
+    // v8.2.1: GPT Live中は端末側VADも併用。
+    // Transcript deltaの間隔だけで文末判定すると「2卓に」で途中確定することがあるため、
+    // 実際の発話終了（無音650ms）を優先する。
+    if (liveListeningV82_) {
+      monitorLiveSpeechV821_(metrics);
+    }
+
+    // 実際に人が声を出したかをAudioContext側でも確認。
+    if (state === "listening" && commandModeActive) {
+      monitorCommandSpeech_(metrics);
+    }
+
+    if (
+      state === "listening" &&
+      mediaRecorder &&
+      mediaRecorder.state === "recording"
+    ) {
+      monitorVoiceRecording(metrics);
+    }
+  }
+
+
+  function calibrateNoiseFloor_(metrics) {
+    var rms = Number(metrics.rms || 0);
+    var highRms = Number(metrics.highRms || 0);
+
+    noiseFloor =
+      noiseFloor * 0.90 +
+      rms * 0.10;
+
+    highNoiseFloor =
+      highNoiseFloor * 0.90 +
+      highRms * 0.10;
+
+    noiseFloor =
+      Math.max(
+        0.005,
+        Math.min(noiseFloor, 0.10)
+      );
+
+    highNoiseFloor =
+      Math.max(
+        0.0015,
+        Math.min(highNoiseFloor, 0.035)
+      );
+  }
+
+
+  function detectClap(metrics) {
+    var rms = Number(metrics.rms || 0);
+    var peak = Number(metrics.peak || 0);
+    var highRms = Number(metrics.highRms || 0);
+    var highPeak = Number(metrics.highPeak || 0);
+    var highRatio = Number(metrics.highRatio || 0);
+    var now = Date.now();
+
+    var rawPeakThreshold =
+      Math.max(
+        0.15,
+        0.36 - sensitivity * 0.016,
+        noiseFloor * 3.6
+      );
+
+    var highRmsThreshold =
+      Math.max(
+        0.014,
+        0.032 - sensitivity * 0.0015,
+        highNoiseFloor * 5.2
+      );
+
+    var highPeakThreshold =
+      Math.max(
+        0.075,
+        0.16 - sensitivity * 0.007,
+        highNoiseFloor * 10.0
+      );
+
+    var ratioThreshold =
+      Math.max(
+        0.22,
+        0.38 - sensitivity * 0.014
+      );
+
+    var quiet =
+      rms <
+        Math.max(
+          0.050,
+          noiseFloor * 1.9
+        ) &&
+      highRms <
+        Math.max(
+          0.020,
+          highNoiseFloor * 2.3
+        );
+
+    if (quiet) {
+      if (!quietSince) {
+        quietSince = now;
+      }
+
+      noiseFloor =
+        noiseFloor * 0.992 +
+        rms * 0.008;
+
+      highNoiseFloor =
+        highNoiseFloor * 0.992 +
+        highRms * 0.008;
+    } else {
+      if (
+        rms > Math.max(0.045, noiseFloor * 2.0)
+      ) {
+        if (!speechLikeSince) {
+          speechLikeSince = now;
+        }
+      } else {
+        speechLikeSince = 0;
+      }
+    }
+
+    var hadQuietBefore =
+      quietSince &&
+      now - quietSince >= CLAP_REQUIRED_QUIET_MS;
+
+    var voiceActiveLong =
+      speechLikeSince &&
+      now - speechLikeSince >= 120;
+
+    var attack =
+      hadQuietBefore &&
+      !voiceActiveLong &&
+      peak >= rawPeakThreshold &&
+      highRms >= highRmsThreshold &&
+      highPeak >= highPeakThreshold &&
+      highRatio >= ratioThreshold &&
+      now - lastTransientAt >
+        TRANSIENT_REFRACTORY;
+
+    if (!clapPulseStart) {
+      if (attack) {
+        clapPulseStart = now;
+        clapPulseMaxCrest = highPeak;
+        clapPulseMaxHighRatio = highRatio;
+        quietSince = 0;
+      }
+
+      return;
+    }
+
+    clapPulseMaxCrest =
+      Math.max(
+        clapPulseMaxCrest,
+        highPeak
+      );
+
+    clapPulseMaxHighRatio =
+      Math.max(
+        clapPulseMaxHighRatio,
+        highRatio
+      );
+
+    var duration =
+      now - clapPulseStart;
+
+    var released =
+      highRms <=
+        Math.max(
+          highNoiseFloor * 2.1,
+          highRmsThreshold * 0.42
+        ) &&
+      rms <=
+        Math.max(
+          noiseFloor * 2.2,
+          0.060
+        );
+
+    if (released) {
+      if (
+        duration >= CLAP_MIN_PULSE_MS &&
+        duration <= CLAP_MAX_PULSE_MS &&
+        clapPulseMaxCrest >=
+          highPeakThreshold &&
+        clapPulseMaxHighRatio >=
+          ratioThreshold
+      ) {
+        var clapAt =
+          clapPulseStart;
+
+        lastTransientAt = now;
+        resetClapPulse_();
+        quietSince = now;
+        speechLikeSince = 0;
+
+        registerClap(clapAt);
+        return;
+      }
+
+      resetClapPulse_();
+      quietSince = now;
+      return;
+    }
+
+    if (duration > CLAP_MAX_PULSE_MS) {
+      resetClapPulse_();
+      speechLikeSince =
+        speechLikeSince || now;
+    }
+  }
+
+
+  function resetClapPulse_() {
+    clapPulseStart = 0;
+    clapPulseMaxCrest = 0;
+    clapPulseMaxHighRatio = 0;
+  }
+
+
+  function registerClap(now) {
+    if (!firstClapAt) {
+      firstClapAt = now;
+      flashClap("CLAP 1 / 2");
+      return;
+    }
+
+    var gap = now - firstClapAt;
+
+    if (gap >= CLAP_MIN_GAP && gap <= CLAP_MAX_GAP) {
+      firstClapAt = 0;
+      activateByClap();
+      return;
+    }
+
+    if (gap > CLAP_MAX_GAP) {
+      firstClapAt = now;
+      flashClap("CLAP 1 / 2");
+    }
+  }
+
+
+  function flashClap(text) {
+    document.getElementById("clapLabel").textContent = text;
+
+    setTimeout(function() {
+      if (state === "standby") {
+        document.getElementById("clapLabel").textContent = "WAKE WORD: JARVIS";
+      }
+    }, 650);
+  }
+
+
+  function normalizeWakeText_(text) {
+    return String(text || "")
+      .toLowerCase()
+      .replace(/[ 　、。,.!?！？]/g, "");
+  }
+
+
+  function containsWakeWord_(text) {
+    var normalized = normalizeWakeText_(text);
+
+    for (var i = 0; i < WAKE_WORDS.length; i++) {
+      var word = normalizeWakeText_(WAKE_WORDS[i]);
+
+      if (normalized.indexOf(word) >= 0) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+
+  function stopWakeWordRecognition_() {
+    if (wakeRestartTimer) {
+      clearTimeout(wakeRestartTimer);
+      wakeRestartTimer = null;
+    }
+
+    if (wakeRecognition) {
+      try {
+        wakeRecognition.onend = null;
+        wakeRecognition.onerror = null;
+        wakeRecognition.stop();
+      } catch (ignore) {}
+    }
+
+    wakeRecognition = null;
+    wakeRecognitionRunning = false;
+  }
+
+
+  function startWakeWordRecognition_() {
+    if (
+      !SpeechRecognitionCtor ||
+      !micReady ||
+      state !== "standby" ||
+      busy ||
+      wakeRecognitionRunning ||
+      commandModeActive
+    ) {
+      return;
+    }
+
+    try {
+      wakeRecognition = new SpeechRecognitionCtor();
+      wakeRecognition.lang = "ja-JP";
+      wakeRecognition.continuous = true;
+      wakeRecognition.interimResults = true;
+      wakeRecognition.maxAlternatives = 1;
+
+      wakeRecognition.onstart = function() {
+        wakeRecognitionRunning = true;
+
+        if (state === "standby") {
+          document.getElementById("stateSub").textContent =
+            "「ジャービス」と呼んでください";
+
+          document.getElementById("clapLabel").textContent =
+            "WAKE WORD: JARVIS";
+        }
+      };
+
+      wakeRecognition.onresult = function(event) {
+        if (state !== "standby") return;
+
+        var heard = "";
+
+        for (
+          var i = event.resultIndex;
+          i < event.results.length;
+          i++
+        ) {
+          var item = event.results[i];
+
+          if (item && item[0] && item[0].transcript) {
+            heard += String(item[0].transcript);
+          }
+        }
+
+        if (containsWakeWord_(heard)) {
+          stopWakeWordRecognition_();
+          activateByWakeWord_();
+        }
+      };
+
+      wakeRecognition.onerror = function(event) {
+        wakeRecognitionRunning = false;
+
+        var errorName =
+          String(event && event.error ? event.error : "");
+
+        if (
+          errorName === "not-allowed" ||
+          errorName === "service-not-allowed"
+        ) {
+          document.getElementById("stateSub").textContent =
+            "ウェイクワード利用不可。マイクボタンを使用してください。";
+        }
+      };
+
+      wakeRecognition.onend = function() {
+        wakeRecognitionRunning = false;
+
+        if (
+          state === "standby" &&
+          !busy &&
+          !commandModeActive
+        ) {
+          wakeRestartTimer =
+            setTimeout(startWakeWordRecognition_, 600);
+        }
+      };
+
+      wakeRecognition.start();
+
+    } catch (err) {
+      wakeRecognitionRunning = false;
+
+      if (state === "standby") {
+        wakeRestartTimer =
+          setTimeout(startWakeWordRecognition_, 1000);
+      }
+    }
+  }
+
+
+  function activateByWakeWord_() {
+    if (busy || state !== "standby") return;
+
+    stopWakeWordRecognition_();
+
+    setState(
+      "listening",
+      "ACTIVATED",
+      "はい。ご用件をどうぞ。"
+    );
+
+    playActivateTone();
+
+    speakShort("はい", function() {
+      setTimeout(beginFastVoiceInput_, legacyIOSCommandRecorderV815_ ? 600 : 320);
+    });
+  }
+
+
+  function monitorCommandSpeech_(metrics) {
+    var rms = Number(metrics.rms || 0);
+    var threshold =
+      Math.max(0.028, noiseFloor * 1.75);
+    var now = Date.now();
+
+    if (rms >= threshold) {
+      commandSpeechDetected = true;
+
+      if (!commandSpeechActiveSince) {
+        commandSpeechActiveSince = now;
+      }
+    } else if (commandSpeechActiveSince) {
+      commandSpeechAccumulatedMs +=
+        now - commandSpeechActiveSince;
+
+      commandSpeechActiveSince = 0;
+    }
+  }
+
+
+  function finishCommandSpeechAccumulation_() {
+    if (commandSpeechActiveSince) {
+      commandSpeechAccumulatedMs +=
+        Date.now() - commandSpeechActiveSince;
+
+      commandSpeechActiveSince = 0;
+    }
+  }
+
+
+  function isMeaningfulRecognizedText_(text) {
+    var s = String(text || "")
+      .trim()
+      .replace(/[ 　]/g, "");
+
+    if (!s) return false;
+
+    if (
+      /^(あー+|えー+|えっと|うーん|んー+|もしもし|はい|え)$/i.test(s)
+    ) {
+      return false;
+    }
+
+    var plain =
+      s.replace(/[、。,.!?！？ー\-]/g, "");
+
+    return plain.length >= 2;
+  }
+
+
+  function cancelCommandForSilence_() {
+    if (commandDeadlineTimer) {
+      clearTimeout(commandDeadlineTimer);
+      commandDeadlineTimer = null;
+    }
+
+    commandModeActive = false;
+    recognitionGotFinal = true;
+
+    if (recognition) {
+      try {
+        recognition.stop();
+      } catch (ignore) {}
+    }
+
+    recognitionRunning = false;
+    showMessage("");
+
+    setState(
+      "standby",
+      "STANDBY",
+      "また、ご用件があればお呼びください。"
+    );
+
+    speak(
+      "また、ご用件があればお呼びください。",
+      function() {
+        setTimeout(function() {
+          if (state === "standby") {
+            document.getElementById("stateSub").textContent =
+              "「ジャービス」と呼んでください";
+
+            startWakeWordRecognition_();
+          }
+        }, 350);
+      }
+    );
+  }
+
+
+  function activateByClap() {
+    // v5では拍手起動は使用しない。
+    activateByWakeWord_();
+  }
+
+
+  window.manualListen = function() {
+    if (busy) return;
+
+    if (state === "offline") {
+      alert("先にSYSTEM STARTを押してください。");
+      return;
+    }
+
+    if (!micReady) {
+      setState(
+        "error",
+        "MIC ERROR",
+        "マイクが起動していません。"
+      );
+      setTimeout(returnToStandby, 1600);
+      return;
+    }
+
+    stopWakeWordRecognition_();
+
+    setState(
+      "listening",
+      "LISTENING",
+      "ご用件をどうぞ"
+    );
+
+    beginFastVoiceInput_();
+  };
+
+
+  function beginFastVoiceInput_() {
+    stopWakeWordRecognition_();
+
+    commandModeActive = true;
+    commandSpeechDetected = false;
+    commandSpeechActiveSince = 0;
+    commandSpeechAccumulatedMs = 0;
+
+    if (commandDeadlineTimer) {
+      clearTimeout(commandDeadlineTimer);
+    }
+
+    // 12秒以内に有効な録音が終わらなければ送信せず終了。
+    commandDeadlineTimer =
+      setTimeout(cancelCommandForSilence_, 12000);
+
+    // 注文本文は端末の文字起こしを使わず、必ず音声データをAIへ送る。
+    beginVoiceRecording();
+  }
+
+
+  function scoreRestaurantTranscript_(text, confidence) {
+    var s = String(text || "").trim();
+    var score = Number(confidence || 0) * 10;
+
+    if (!s) return -9999;
+
+    // 卓番号が明示されている候補を最優先。
+    if (/(?:[0-7０-７一二三四五六七]\s*卓|(?:座|ざ|ザ)\s*[1-3１-３]|テーブル\s*[0-7０-７])/.test(s)) {
+      score += 150;
+    }
+
+    // 店内操作・注文でよく出る語。
+    if (/(入ります|入れます|入れて|追加|注文|オーダー|未提供|未完了|完了|終了|確認)/.test(s)) {
+      score += 55;
+    }
+
+    // 既知の卓番号誤認識。サーバー側で補正可能なので次点。
+    if (/(味覚|食卓|自宅|委託|お得|三宅|[0-7]\s*(?:宅|択|拓|たく|タク))/.test(s)) {
+      score += 35;
+    }
+
+    return score;
+  }
+
+
+  function normalizeRestaurantVoiceTranscriptClient_(text) {
+    var s = String(text || "").trim();
+
+    if (!s) return "";
+
+    var orderContext =
+      /(入ります|入れます|入れて|追加|注文|オーダー|未提供|未完了|調理|提供|完了|終了|終わ|確認|状況|残り|教えて|戻して)/.test(s);
+
+    // 「味覚に…」「2拓に…」のように、操作語が省略された短い注文でも
+    // 卓番号らしい位置にある既知の誤認識だけは補正対象にする。
+    var tableTokenContext =
+      /(?:^|[\s、,])(?:味覚|(?:ざ|ザ)\s*[1-3]|[0-7]\s*(?:択|宅|拓|たく|タク))(?=\s|$|[にのではをがへ、。,.!！?？])/.test(
+        v823NumText_(s)
+      );
+
+    if (!orderContext && !tableTokenContext) {
+      return s;
+    }
+
+    // 数字がかなで返った場合も、注文文脈の中だけ卓番号へ統一する。
+    s = v823NumText_(s)
+      .replace(/(?:ぜろたく|ゼロタク|れいたく|レイタク)/g, "0卓")
+      .replace(/(?:いったく|イッタク)/g, "1卓")
+      .replace(/(?:にたく|ニタク)/g, "2卓")
+      .replace(/(?:さんたく|サンタク)/g, "3卓")
+      .replace(/(?:よんたく|ヨンタク)/g, "4卓")
+      .replace(/(?:ごたく|ゴタク)/g, "5卓")
+      .replace(/(?:ろくたく|ロクタク)/g, "6卓")
+      .replace(/(?:ななたく|ナナタク|しちたく|シチタク)/g, "7卓");
+
+    s = s.replace(
+      /(?:ざ|ザ)\s*([1-3])\s*(?:番)?\s*(?:卓|テーブル)?/g,
+      "座$1卓"
+    );
+
+    // 実機で確認された卓番号の誤認識を、
+    // 注文・店内操作の文脈だけ補正する。
+    s = s.replace(
+      /(?:味覚|食卓|自宅)(?=\s|$|[にのではをがへ、。,.!！?？])/g,
+      "1卓"
+    );
+
+    s = s.replace(
+      /(?:三宅(?:様|さん)?|3\s*(?:宅|択|拓|たく|タク))(?=\s|$|[にのではをがへ、。,.!！?？])/g,
+      "3卓"
+    );
+
+    s = s.replace(
+      /(?:委託|お得)(?=\s|$|[にのではをがへ、。,.!！?？])/g,
+      "6卓"
+    );
+
+    // GPT / Web Speech can output 卓 as 択・宅・拓. Apply only in order context.
+    s = v823NumText_(s).replace(
+      /([0-7])\s*(?:択|宅|拓|たく|タク)(?=\s|$|[にのではをがへ、。,.!！?？])/g,
+      "$1卓"
+    );
+
+    return s;
+  }
+
+
+  function chooseBestRestaurantTranscript_(result) {
+    if (!result || !result.length) {
+      return "";
+    }
+
+    var bestText = "";
+    var bestScore = -999999;
+
+    for (var i = 0; i < result.length; i++) {
+      var alt = result[i];
+
+      if (!alt || !alt.transcript) {
+        continue;
+      }
+
+      var text =
+        String(alt.transcript).trim();
+
+      var score =
+        scoreRestaurantTranscript_(
+          text,
+          alt.confidence
+        );
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestText = text;
+      }
+    }
+
+    return bestText;
+  }
+
+
+
+  function collectRestaurantAlternativesV817_(result) {
+    var list = [];
+    var seen = {};
+    if (!result || !result.length) return list;
+
+    for (var i = 0; i < result.length && i < 5; i++) {
+      var alt = result[i];
+      if (!alt || !alt.transcript) continue;
+      var text = normalizeRestaurantVoiceTranscriptClient_(String(alt.transcript || "").trim());
+      if (!text || seen[text]) continue;
+      seen[text] = true;
+      list.push({
+        text: text,
+        confidence: Number(alt.confidence || 0)
+      });
+    }
+    return list;
+  }
+
+  function startCommandRecognitionCycle_() {
+    if (
+      !commandModeActive ||
+      recognitionRunning ||
+      !SpeechRecognitionCtor
+    ) {
+      return;
+    }
+
+    try {
+      recognition = new SpeechRecognitionCtor();
+      recognition.lang = "ja-JP";
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      // v8.1.7: iPhone SEの1候補決め打ちをやめ、複数候補を取得。
+      recognition.maxAlternatives = 5;
+
+      recognition.onstart = function() {
+        recognitionRunning = true;
+
+        setState(
+          "listening",
+          "LISTENING",
+          legacyIOSCommandRecorderV815_
+            ? "音声を聞いています..."
+            : "ご用件をどうぞ"
+        );
+      };
+
+      recognition.onresult = function(event) {
+        var finalText = "";
+        var speechAlternativesV817 = [];
+        var speechSeenV817 = {};
+
+        for (
+          var i = event.resultIndex;
+          i < event.results.length;
+          i++
+        ) {
+          var result = event.results[i];
+
+          if (
+            result &&
+            result.isFinal
+          ) {
+            var alternatives = collectRestaurantAlternativesV817_(result);
+            for (var a = 0; a < alternatives.length; a++) {
+              var candidate = alternatives[a];
+              if (!speechSeenV817[candidate.text]) {
+                speechSeenV817[candidate.text] = true;
+                speechAlternativesV817.push(candidate);
+              }
+            }
+
+            var bestTranscript = chooseBestRestaurantTranscript_(result);
+            if (bestTranscript) finalText += bestTranscript;
+          }
+        }
+
+        finalText =
+          normalizeRestaurantVoiceTranscriptClient_(
+            String(finalText || "").trim()
+          );
+
+        if (finalText && !speechSeenV817[finalText]) {
+          speechAlternativesV817.unshift({text:finalText, confidence:0});
+        }
+        if (speechAlternativesV817.length > 5) speechAlternativesV817 = speechAlternativesV817.slice(0,5);
+
+        if (!finalText) return;
+
+        finishCommandSpeechAccumulation_();
+
+        var enoughRealSpeech =
+          legacyIOSCommandRecorderV815_
+            ? true
+            : (
+                commandSpeechDetected &&
+                commandSpeechAccumulatedMs >= 180
+              );
+
+        var meaningful =
+          isMeaningfulRecognizedText_(finalText);
+
+        // 無音時の誤認識、短い曖昧語は絶対にAIへ送らない。
+        if (!enoughRealSpeech || !meaningful) {
+          return;
+        }
+
+        recognitionGotFinal = true;
+        commandModeActive = false;
+
+        if (commandDeadlineTimer) {
+          clearTimeout(commandDeadlineTimer);
+          commandDeadlineTimer = null;
+        }
+
+        try {
+          recognition.stop();
+        } catch (ignore) {}
+
+        recognitionRunning = false;
+
+        setState(
+          "processing",
+          "PROCESSING",
+          "認識：" + finalText
+        );
+
+        showMessage("認識：" + finalText);
+
+        sendCommand(
+          finalText,
+          "VOICE_BROWSER",
+          speechAlternativesV817
+        );
+      };
+
+      recognition.onerror = function(event) {
+        recognitionRunning = false;
+
+        if (
+          recognitionGotFinal ||
+          !commandModeActive
+        ) {
+          return;
+        }
+
+        var errorName =
+          String(event && event.error ? event.error : "");
+
+        // 無音・認識失敗・一時ネットワークエラーでは
+        // 勝手に回答せず10秒待機を続ける。
+        if (
+          errorName === "no-speech" ||
+          errorName === "aborted" ||
+          errorName === "network"
+        ) {
+          return;
+        }
+
+        if (
+          errorName === "not-allowed" ||
+          errorName === "service-not-allowed"
+        ) {
+          if (commandDeadlineTimer) {
+            clearTimeout(commandDeadlineTimer);
+            commandDeadlineTimer = null;
+          }
+
+          commandModeActive = false;
+
+          setState(
+            "error",
+            "MIC ERROR",
+            "音声認識のマイク権限を確認してください。"
+          );
+
+          setTimeout(returnToStandby, 1700);
+        }
+      };
+
+      recognition.onend = function() {
+        recognitionRunning = false;
+
+        if (
+          recognitionGotFinal ||
+          !commandModeActive
+        ) {
+          return;
+        }
+
+        setTimeout(
+          startCommandRecognitionCycle_,
+          legacyIOSCommandRecorderV815_ ? 120 : 220
+        );
+      };
+
+      recognition.start();
+
+    } catch (err) {
+      recognitionRunning = false;
+
+      if (commandModeActive) {
+        setTimeout(
+          startCommandRecognitionCycle_,
+          500
+        );
+      }
+    }
+  }
+
+
+  function chooseRecordingMimeType() {
+    if (!window.MediaRecorder) return "";
+
+    var list = [
+      "audio/mp4",
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/ogg;codecs=opus"
+    ];
+
+    for (var i = 0; i < list.length; i++) {
+      try {
+        if (
+          !MediaRecorder.isTypeSupported ||
+          MediaRecorder.isTypeSupported(list[i])
+        ) {
+          return list[i];
+        }
+      } catch (ignore) {}
+    }
+
+    return "";
+  }
+
+
+  function beginVoiceRecording() {
+    if (!micStream) {
+      returnToStandby("マイクが利用できません");
+      return;
+    }
+
+    if (!window.MediaRecorder) {
+      setState("error", "VOICE UNSUPPORTED", "この端末は音声録音に対応していません。");
+      setTimeout(returnToStandby, 1900);
+      return;
+    }
+
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      return;
+    }
+
+    recordedChunks = [];
+    recordingStartedAt = Date.now();
+    speechDetected = false;
+    silenceStartedAt = 0;
+    recordingStopRequested = false;
+
+    var mimeType = chooseRecordingMimeType();
+
+    try {
+      mediaRecorder = mimeType
+        ? new MediaRecorder(micStream, {
+            mimeType: mimeType,
+            audioBitsPerSecond: 64000
+          })
+        : new MediaRecorder(micStream);
+    } catch (err) {
+      try {
+        mediaRecorder = new MediaRecorder(micStream);
+      } catch (err2) {
+        setState("error", "RECORDER ERROR", "音声録音を開始できません。");
+        setTimeout(returnToStandby, 1800);
+        return;
+      }
+    }
+
+    mediaRecorder.ondataavailable = function(event) {
+      if (event.data && event.data.size > 0) {
+        recordedChunks.push(event.data);
+      }
+    };
+
+    mediaRecorder.onerror = function() {
+      recordingStopRequested = true;
+      setState("error", "RECORDER ERROR", "音声録音中にエラーが発生しました。");
+      setTimeout(returnToStandby, 1800);
+    };
+
+    mediaRecorder.onstop = function() {
+      var actualMime =
+        mediaRecorder && mediaRecorder.mimeType
+          ? mediaRecorder.mimeType
+          : (mimeType || "audio/mp4");
+
+      if (!recordedChunks.length) {
+        busy = false;
+        cancelCommandForSilence_();
+        return;
+      }
+
+      var recordedMs = Math.max(0, Date.now() - recordingStartedAt);
+      var blob = new Blob(recordedChunks, { type: actualMime });
+
+      // iPhone SEでは録音できていても端末側VADだけ反応しない場合がある。
+      // 音量判定だけで破棄せず、実データがあればAI側へ送り無音判定も任せる。
+      if (recordedMs < 500 || blob.size < 256) {
+        busy = false;
+        cancelCommandForSilence_();
+        return;
+      }
+
+      // 有効な音声を録音できた時点で「無音10秒タイマー」は役目を終える。
+      // 文字起こし/GAS処理が10秒を超えても、途中でSTANDBYへ戻さない。
+      if (commandDeadlineTimer) {
+        clearTimeout(commandDeadlineTimer);
+        commandDeadlineTimer = null;
+      }
+      commandModeActive = false;
+
+      if (!speechDetected) {
+        showMessage("端末の音量判定を使わず、録音データをAIで確認します...");
+      }
+      sendAudioBlob(blob, actualMime);
+    };
+
+    try {
+      mediaRecorder.start(250);
+      setState("listening", "LISTENING", "ご用件をどうぞ");
+      showMessage("");
+    } catch (startErr) {
+      setState("error", "RECORDER ERROR", "音声録音を開始できません。");
+      setTimeout(returnToStandby, 1800);
+    }
+  }
+
+
+  function monitorVoiceRecording(metrics) {
+    var now = Date.now();
+    var elapsed = now - recordingStartedAt;
+
+    // 古いiPhoneはAudioContextのRMSが低めに出ることがあるため、
+    // 初期版に近い軽い判定へ戻す。商品・卓・Actionの安全判定はGAS側で行う。
+    var voiceThreshold = legacyIOSCommandRecorderV815_
+      ? Math.max(0.014, noiseFloor * 1.20)
+      : Math.max(0.028, noiseFloor * 1.65);
+
+    var endSilenceMs = legacyIOSCommandRecorderV815_ ? 500 : END_SILENCE_MS;
+    // VADが反応しないiPhone SEでも途中で切らず、固定時間分をAIへ送る。
+    var noSpeechMs = NO_SPEECH_TIMEOUT_MS;
+
+    if (metrics.rms >= voiceThreshold) {
+      speechDetected = true;
+      silenceStartedAt = 0;
+    } else if (speechDetected && elapsed > 450) {
+      if (!silenceStartedAt) silenceStartedAt = now;
+
+      if (now - silenceStartedAt >= endSilenceMs) {
+        stopVoiceRecording();
+        return;
+      }
+    }
+
+    if (!speechDetected && elapsed >= noSpeechMs) {
+      stopVoiceRecording();
+      return;
+    }
+
+    if (elapsed >= MAX_RECORD_MS) {
+      stopVoiceRecording();
+    }
+  }
+
+
+  function stopVoiceRecording() {
+    if (
+      recordingStopRequested ||
+      !mediaRecorder ||
+      mediaRecorder.state !== "recording"
+    ) {
+      return;
+    }
+
+    recordingStopRequested = true;
+
+    try {
+      mediaRecorder.stop();
+    } catch (ignore) {}
+  }
+
+
+  function sendAudioBlob(blob, mimeType) {
+    busy = true;
+    setState("processing", "PROCESSING", "録音完了。GASへ送信しています...");
+
+    var reader = new FileReader();
+
+    reader.onloadend = function() {
+      var dataUrl = String(reader.result || "");
+      var comma = dataUrl.indexOf(",");
+      var base64 = comma >= 0 ? dataUrl.substring(comma + 1) : "";
+
+      if (!base64) {
+        busy = false;
+        handleResult({
+          success: false,
+          message: "音声データを読み取れませんでした。"
         });
-    })();
-  </script>
+        return;
+      }
+
+      apiRequest(
+        "audio",
+        {
+          audioBase64: base64,
+          mimeType: mimeType || blob.type || "audio/mp4",
+          deviceId: deviceId
+        },
+        function(result) {
+          busy = false;
+          handleResult(result);
+        },
+        35000
+      );
+    };
+
+    reader.onerror = function() {
+      busy = false;
+      handleResult({
+        success: false,
+        message: "音声データの読み込みに失敗しました。"
+      });
+    };
+
+    reader.readAsDataURL(blob);
+  }
+
+
+  window.manualSend = function() {
+    var input = document.getElementById("textInput");
+    var text = String(input.value || "").trim();
+
+    if (!text || busy) return;
+
+    input.value = "";
+    sendCommand(text, "TEXT");
+  };
+
+
+  function setupInput() {
+    document.getElementById("textInput").addEventListener("keydown", function(event) {
+      if (event.key === "Enter" && !event.isComposing) {
+        event.preventDefault();
+        window.manualSend();
+      }
+    });
+  }
+
+
+  function sendCommand(text, inputType) {
+    if (!text || busy) return;
+
+    busy = true;
+    showMessage(text);
+    setState("processing", "PROCESSING", "指示を処理しています...");
+
+    apiRequest(
+      "command",
+      {
+        text: text,
+        deviceId: deviceId,
+        inputType: inputType || "TEXT"
+      },
+      function(result) {
+        busy = false;
+        handleResult(result);
+      },
+      30000
+    );
+  }
+
+
+  function handleResult(result) {
+    result = result || {};
+
+    var ok = result.success === true;
+    var message = String(result.message || "応答を取得できませんでした。");
+    var transcript = String(result.normalizedTranscript || result.transcript || "").trim();
+
+    if (transcript) {
+      showMessage("認識：" + transcript + "\n\n" + message);
+    } else {
+      showMessage(message);
+    }
+
+    if (ok) {
+      // bootstrapを一度取りこぼしてAPI OFFLINE表示になっていても、
+      // 実際のAPI応答が成功したらオンライン表示へ復帰。
+      document.getElementById("onlineText").textContent =
+        "SYSTEM ONLINE V8.5.0";
+
+      setState(
+        "complete",
+        "COMPLETE",
+        result.mode === "fast" ? "FAST COMMAND" : "JARVIS RESPONSE"
+      );
+    } else {
+      setState("error", "ERROR", "処理を確認してください");
+    }
+
+    if (result.refreshStats) {
+      setTimeout(loadBootstrap, 250);
+    }
+
+    if (voiceEnabled && (result.speak || message)) {
+      speak(String(result.speak || message), function() {
+        setTimeout(returnToStandby, 260);
+      });
+    } else {
+      setTimeout(returnToStandby, 1100);
+    }
+  }
+
+
+  function setupTransportListener() {
+    window.addEventListener("message", function(event) {
+      var packet = event && event.data ? event.data : null;
+      if (!packet || packet.type !== "SERINA_JARVIS_BOOTSTRAP") return;
+
+      var requestId = String(packet.requestId || "");
+      if (!requestId || typeof pendingRequests[requestId] !== "function") return;
+
+      // requestIdは端末側で128bit生成。GASが同じIDを返した時だけ受理する。
+      pendingRequests[requestId](packet.result || {
+        success: false,
+        errorCode: "BOOTSTRAP_EMPTY_RESPONSE",
+        message: "GASから初期情報が返りませんでした。"
+      });
+    });
+  }
+
+
+  function apiRequest(action, data, callback, timeoutMs) {
+    var token = getPairingToken();
+
+    if (!token) {
+      callback({
+        success: false,
+        message:
+          "ペアリングトークンが未設定です。"
+      });
+      return;
+    }
+
+    var requestId =
+      makeSecureRequestId_();
+
+    var params =
+      new URLSearchParams();
+
+    params.set(
+      "token",
+      token
+    );
+
+    params.set(
+      "requestId",
+      requestId
+    );
+
+    params.set(
+      "action",
+      action
+    );
+
+    data = data || {};
+
+    Object.keys(data)
+      .forEach(function(key) {
+        params.set(
+          key,
+          data[key] == null
+            ? ""
+            : String(data[key])
+        );
+      });
+
+    if (action === "bootstrap") {
+      var completed = false;
+      var cancelPoll = null;
+
+      function completeBootstrap(result) {
+        if (completed) return;
+        completed = true;
+        delete pendingRequests[requestId];
+        if (cancelPoll) cancelPoll();
+        callback(result);
+      }
+
+      pendingRequests[requestId] = completeBootstrap;
+
+      // 直接応答が届かない時だけ使う予備経路。
+      cancelPoll = pollBootstrapResultV850_(
+        requestId,
+        completeBootstrap,
+        Number(timeoutMs || 30000)
+      );
+
+      params.set("responseMode", "postMessage");
+      params.set("clientOrigin", window.location.origin);
+
+      try {
+        var form = document.getElementById("gasTransportForm");
+        form.action = GAS_URL;
+        form.method = "post";
+        form.target = "gasTransportFrame";
+        form.innerHTML = "";
+        params.forEach(function(value, key) {
+          appendHidden(form, key, value);
+        });
+        form.submit();
+      } catch (formError) {
+        sendFetchPostV850_(params);
+      }
+      return;
+    }
+
+    // 注文系は従来どおりPOST + JSONP。注文の安全回復処理を維持する。
+    pollRequestResult_(requestId, callback, Number(timeoutMs || 30000));
+    sendFetchPostV850_(params);
+  }
+
+
+  function sendFetchPostV850_(params) {
+    fetch(
+      GAS_URL,
+      {
+        method: "POST",
+        mode: "no-cors",
+        cache: "no-store",
+        body: params
+      }
+    ).catch(function() {
+      // POSTの成否だけでは確定しない。結果はpoll側で判定する。
+    });
+  }
+
+
+  function makeSecureRequestId_() {
+    var bytes = new Uint8Array(16);
+
+    if (
+      window.crypto &&
+      window.crypto.getRandomValues
+    ) {
+      window.crypto.getRandomValues(bytes);
+
+      var hex = "";
+
+      for (var i = 0; i < bytes.length; i++) {
+        hex +=
+          ("0" + bytes[i].toString(16)).slice(-2);
+      }
+
+      return "j" + hex;
+    }
+
+    // 古いブラウザ用フォールバック
+    return (
+      "j" +
+      Date.now().toString(36) +
+      Math.random().toString(36).slice(2, 14) +
+      Math.random().toString(36).slice(2, 14)
+    ).replace(/[^A-Za-z0-9_-]/g, "");
+  }
+
+
+  function acknowledgeRequestResult_(requestId) {
+    try {
+      fetch(
+        GAS_URL +
+          "?api=ack" +
+          "&requestId=" +
+          encodeURIComponent(
+            requestId
+          ) +
+          "&_=" +
+          Date.now(),
+        {
+          method: "GET",
+          mode: "no-cors",
+          cache: "no-store"
+        }
+      ).catch(function() {});
+    } catch (ignore) {}
+  }
+
+
+  function pollBootstrapResultV850_(
+    requestId,
+    callback,
+    timeoutMs
+  ) {
+    var startedAt = Date.now();
+    var finished = false;
+    var activeCleanup = null;
+    var limitMs = Math.max(5000, Number(timeoutMs || 30000));
+
+    // JSONPのscript自体が固まっても必ず終了させる独立タイマー。
+    var hardTimeout = setTimeout(function() {
+      finish({
+        success: false,
+        errorCode: "GAS_POLL_HARD_TIMEOUT",
+        message: "JARVIS GASとの通信がタイムアウトしました。"
+      });
+    }, limitMs + 250);
+
+    function finish(result) {
+      if (finished) return;
+      finished = true;
+      clearTimeout(hardTimeout);
+      if (activeCleanup) activeCleanup();
+      callback(result);
+    }
+
+    var pollCount = 0;
+
+    function poll() {
+      if (finished) return;
+
+      pollCount++;
+
+      if (bootActiveV850_) {
+        bootPhaseV850_(62,"DATABASE SYNCHRONIZATION","GAS応答待ち... " + pollCount);
+      }
+
+      if (state === "processing") {
+        document.getElementById("stateSub").textContent =
+          "GAS応答待ち... " + pollCount;
+      }
+
+      if (Date.now() - startedAt > limitMs) {
+        finish({
+          success: false,
+          errorCode: "GAS_POLL_TIMEOUT",
+          message:
+            "JARVIS GASとの通信がタイムアウトしました。"
+        });
+        return;
+      }
+
+      var callbackName =
+        "__jarvisPoll_" +
+        requestId.replace(/[^A-Za-z0-9_$]/g, "");
+
+      var script =
+        document.createElement("script");
+
+      var cleaned = false;
+      var attemptTimer = null;
+
+      function cleanup() {
+        if (cleaned) return;
+        cleaned = true;
+        if (attemptTimer) clearTimeout(attemptTimer);
+        if (activeCleanup === cleanup) activeCleanup = null;
+
+        try {
+          if (script.parentNode) {
+            script.parentNode.removeChild(script);
+          }
+        } catch (ignore) {}
+
+        try {
+          delete window[callbackName];
+        } catch (ignore2) {
+          window[callbackName] = undefined;
+        }
+      }
+
+      activeCleanup = cleanup;
+
+      window[callbackName] = function(packet) {
+        packet = packet || {};
+        cleanup();
+
+        if (packet.ready === true) {
+          // 受信できた後にだけGAS側の結果を削除。
+          acknowledgeRequestResult_(
+            requestId
+          );
+
+          finish(
+            packet.result || {
+              success: false,
+              message:
+                "GASから空の応答が返りました。"
+            }
+          );
+          return;
+        }
+
+        if (packet.processing === true) {
+          if (state === "processing") {
+            document.getElementById("stateSub").textContent =
+              "GAS処理中... " + pollCount;
+          }
+          setTimeout(poll, 350);
+          return;
+        }
+
+        setTimeout(poll, 500);
+      };
+
+      script.onerror = function() {
+        cleanup();
+        setTimeout(poll, 500);
+      };
+
+      script.onload = function() {
+        // 正常なJSONPなら上のcallbackが先に実行される。
+        // callback未実行のレスポンスだった場合だけ次のpollへ進む。
+        setTimeout(function() {
+          if (!finished && !cleaned) {
+            cleanup();
+            setTimeout(poll, 350);
+          }
+        }, 0);
+      };
+
+      // Safariでscriptのload/errorが返らない場合の1回単位の監視。
+      attemptTimer = setTimeout(function() {
+        if (finished || cleaned) return;
+        cleanup();
+        setTimeout(poll, 120);
+      }, 3500);
+
+      script.async = true;
+      script.src =
+        GAS_URL +
+        "?api=poll" +
+        "&requestId=" +
+        encodeURIComponent(requestId) +
+        "&callback=" +
+        encodeURIComponent(callbackName) +
+        "&_=" +
+        Date.now();
+
+      document.head.appendChild(script);
+    }
+
+    // POST送信とほぼ同時に確認開始
+    setTimeout(poll, 120);
+
+    return function cancelBootstrapPollV850_() {
+      if (finished) return;
+      finished = true;
+      clearTimeout(hardTimeout);
+      if (activeCleanup) activeCleanup();
+    };
+  }
+
+
+  function appendHidden(form, name, value) {
+    var input = document.createElement("input");
+    input.type = "hidden";
+    input.name = name;
+    input.value = value == null ? "" : String(value);
+    form.appendChild(input);
+  }
+
+
+  window.loadBootstrap = loadBootstrap;
+
+  function loadBootstrap(options) {
+    options = options || {};
+    if (!getPairingToken()) {
+      document.getElementById("onlineText").textContent = "PAIRING NEEDED";
+      if (typeof options.onDone === "function") options.onDone(false, null);
+      return;
+    }
+
+    if (options.boot) bootPhaseV850_(58,"MENU / TABLE MATRIX","最新データを安全に同期しています");
+
+    apiRequest(
+      "bootstrap",
+      { deviceId: deviceId, clientVersion: APP_VERSION, cacheBust: Date.now() },
+      function(data) {
+        if (!data || data.success !== true) {
+          document.getElementById("onlineText").textContent = "API OFFLINE";
+          if (typeof options.onDone === "function") options.onDone(false, data || null);
+          return;
+        }
+
+        voiceEnabled = data.voiceReplyEnabled !== false;
+        clapEnabled = data.clapEnabled !== false;
+
+        if (!localStorage.getItem(SENSITIVITY_STORAGE_KEY)) {
+          sensitivity = Number(data.clapSensitivity || 6);
+          document.getElementById("sensitivity").value = sensitivity;
+          document.getElementById("sensitivityText").textContent = String(sensitivity);
+        }
+
+        document.getElementById("voiceText").textContent = voiceEnabled ? "ON" : "OFF";
+
+        try { onBootstrapV82_(data); } catch (bootErrV82) {}
+
+        var preload = data.preloadMenu || {};
+        var pc = Array.isArray(preload.products) ? preload.products.length : 0;
+        var tc = Array.isArray(preload.tables) ? preload.tables.length : 0;
+        var ac = Array.isArray(preload.aliases) ? preload.aliases.length : 0;
+        if (options.boot) {
+          bootModuleV850_("Menu", pc + " ITEMS", pc > 0, pc <= 0);
+          bootModuleV850_("Tables", tc + " TABLES", tc > 0, tc <= 0);
+          bootModuleV850_("Voice", ac + " ALIASES", true);
+        }
+
+        document.getElementById("onlineText").textContent =
+          data.apiReady ? "AI TRANSCRIBE V8.5.0" : "API KEY NEEDED";
+
+        if (SpeechRecognitionCtor) document.getElementById("clapLabel").textContent = "WAKE WORD: JARVIS";
+
+        var summary = data.orderSummary || {};
+        document.getElementById("orderCount").textContent = summary.connected ? String(summary.openOrderCount || 0) : "--";
+        document.getElementById("tableCount").textContent = summary.connected ? String(summary.activeTableCount || 0) : "--";
+
+        if (typeof options.onDone === "function") options.onDone(true, data);
+      },
+      25000
+    );
+  }
+
+
+  function setState(newState, title, sub) {
+    state = newState;
+
+    var reactor =
+      document.getElementById("reactor");
+
+    reactor.className = "reactor";
+
+    if (
+      newState !== "standby" &&
+      newState !== "offline"
+    ) {
+      reactor.className +=
+        " " + newState;
+    }
+
+    document.getElementById("stateTitle").textContent =
+      title || newState.toUpperCase();
+
+    document.getElementById("stateSub").textContent =
+      sub || "";
+
+    if (newState === "standby") {
+      document.getElementById("clapLabel").textContent =
+        SpeechRecognitionCtor
+          ? "WAKE WORD: JARVIS"
+          : "VOICE BUTTON READY";
+    }
+  }
+
+
+  function returnToStandby(subText) {
+    if (state === "offline") return;
+
+    commandModeActive = false;
+
+    if (commandDeadlineTimer) {
+      clearTimeout(commandDeadlineTimer);
+      commandDeadlineTimer = null;
+    }
+
+    setState(
+      "standby",
+      "STANDBY",
+      subText ||
+        (SpeechRecognitionCtor
+          ? "「ジャービス」と呼んでください"
+          : "マイクボタンから音声入力できます")
+    );
+
+    setTimeout(function() {
+      if (state === "standby") {
+        document.getElementById("stateSub").textContent =
+          SpeechRecognitionCtor
+            ? "「ジャービス」と呼んでください"
+            : "マイクボタンから音声入力できます";
+
+        if (SpeechRecognitionCtor) {
+          startWakeWordRecognition_();
+        }
+      }
+    }, 500);
+  }
+
+
+  function showMessage(text) {
+    var box = document.getElementById("messageBox");
+
+    if (!text) {
+      box.style.display = "none";
+      box.textContent = "";
+      return;
+    }
+
+    box.style.display = "block";
+    box.textContent = text;
+    box.scrollTop = box.scrollHeight;
+  }
+
+
+  function speak(text, done) {
+    if (!("speechSynthesis" in window) || !text) {
+      if (done) done();
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    var utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "ja-JP";
+    utterance.rate = 1.05;
+    utterance.pitch = 0.92;
+    utterance.volume = 1;
+
+    var finished = false;
+
+    function finish() {
+      if (finished) return;
+      finished = true;
+      if (done) done();
+    }
+
+    utterance.onend = finish;
+    utterance.onerror = finish;
+
+    window.speechSynthesis.speak(utterance);
+    setTimeout(finish, Math.min(9000, 1200 + text.length * 95));
+  }
+
+
+  function speakShort(text, done) {
+    if (!("speechSynthesis" in window) || !text) {
+      if (done) done();
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    var utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "ja-JP";
+    utterance.rate = 1.1;
+    utterance.pitch = 0.9;
+    utterance.volume = 1;
+
+    var finished = false;
+
+    function finish() {
+      if (finished) return;
+      finished = true;
+      if (done) done();
+    }
+
+    utterance.onend = finish;
+    utterance.onerror = finish;
+
+    window.speechSynthesis.speak(utterance);
+    setTimeout(finish, 900);
+  }
+
+
+  function unlockSpeech() {
+    if (!("speechSynthesis" in window)) return;
+
+    try {
+      var u = new SpeechSynthesisUtterance(" ");
+      u.volume = 0.01;
+      window.speechSynthesis.speak(u);
+    } catch (ignore) {}
+  }
+
+
+  function playActivateTone() {
+    if (!audioContext) return;
+
+    try {
+      var osc = audioContext.createOscillator();
+      var gain = audioContext.createGain();
+
+      osc.frequency.value = 880;
+      gain.gain.value = 0.025;
+
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.start();
+
+      setTimeout(function() {
+        try { osc.stop(); } catch (ignore) {}
+      }, 80);
+    } catch (ignore2) {}
+  }
+
+
+  setInterval(function() {
+    if (
+      state === "processing" &&
+      !busy
+    ) {
+      returnToStandby(
+        "処理待機を解除しました"
+      );
+    }
+  }, 5000);
+
+
+  window.toggleSettings = function() {
+    var panel = document.getElementById("settingsPanel");
+
+    panel.className =
+      panel.className.indexOf(" open") >= 0
+        ? "settings-panel"
+        : "settings-panel open";
+  };
+
+
+  window.changeSensitivity = function() {
+    sensitivity = Number(
+      document.getElementById("sensitivity").value || 6
+    );
+
+    localStorage.setItem(
+      SENSITIVITY_STORAGE_KEY,
+      String(sensitivity)
+    );
+
+    document.getElementById("sensitivityText").textContent =
+      String(sensitivity);
+  };
+
+
+  window.toggleVoice = function() {
+    voiceEnabled = !voiceEnabled;
+
+    document.getElementById("voiceText").textContent =
+      voiceEnabled ? "ON" : "OFF";
+
+    if (!voiceEnabled && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+  };
+
+
+  window.changePairingToken = function() {
+    var next = window.prompt(
+      "新しいJARVISペアリングトークンを入力してください。"
+    );
+
+    if (!next) return;
+
+    savePairingToken(next);
+    loadBootstrap();
+  };
+
+
+  // =========================================================
+  // SERINA JARVIS v8.1.5 ORDER TURBO
+  // - V5.4で実績のあるiPhone SE音声経路をそのまま使用
+  // - 全コマンドをORDER FASTへ固定。Web検索/一般AIは呼ばない
+  // - 20秒の適応タイムアウト + OperationID LOOKUP回復
+  // - 大口/取消など確認が必要な時だけ10秒確認モード
+  // =========================================================
+
+  var V814_ORDER_TIMEOUT_MS = 20000;
+  var V814_LOOKUP_TIMEOUT_MS = 8000;
+  var V814_LOOKUP_INTERVAL_MS = 1000;
+  var V814_CONFIRM_TIMEOUT_MS = 10000;
+  var v814ActiveOrder = null;
+  var v814Confirm = null;
+  var v814ConfirmTimer = null;
+  var v814ConfirmRecognition = null;
+  var v814ConfirmRunning = false;
+
+  function makeOperationIdV814_() {
+    var id = makeSecureRequestId_();
+    return ("op_" + String(id || "").replace(/[^A-Za-z0-9_-]/g, "")).slice(0, 120);
+  }
+
+  function isYesV814_(text) {
+    return /^(?:はい|うん|OK|ok|オーケー|お願い|お願いします|登録して|実行して|それで)[。.!！]*$/.test(String(text || "").trim());
+  }
+
+  function isNoV814_(text) {
+    return /^(?:いいえ|いや|やめて|やめる|キャンセル|なし)[。.!！]*$/.test(String(text || "").trim());
+  }
+
+  function stopConfirmV814_() {
+    if (v814ConfirmTimer) {
+      clearTimeout(v814ConfirmTimer);
+      v814ConfirmTimer = null;
+    }
+    if (v814ConfirmRecognition) {
+      try {
+        v814ConfirmRecognition.onend = null;
+        v814ConfirmRecognition.onerror = null;
+        v814ConfirmRecognition.stop();
+      } catch (ignore) {}
+    }
+    v814ConfirmRecognition = null;
+    v814ConfirmRunning = false;
+  }
+
+  function confirmTimeoutV814_() {
+    stopConfirmV814_();
+    v814Confirm = null;
+    busy = false;
+    showMessage("確認が取れなかったため、登録していません。");
+    setState("standby", "STANDBY", "「ジャービス」と呼んでください");
+    speak("確認が取れなかったため、登録していません。", function() {
+      setTimeout(startWakeWordRecognition_, 250);
+    });
+  }
+
+  function startConfirmRecognitionV814_() {
+    if (!v814Confirm || v814ConfirmRunning || !SpeechRecognitionCtor) return;
+    try {
+      v814ConfirmRecognition = new SpeechRecognitionCtor();
+      v814ConfirmRecognition.lang = "ja-JP";
+      v814ConfirmRecognition.continuous = false;
+      v814ConfirmRecognition.interimResults = false;
+      v814ConfirmRecognition.maxAlternatives = 3;
+      v814ConfirmRecognition.onstart = function() { v814ConfirmRunning = true; };
+      v814ConfirmRecognition.onresult = function(event) {
+        var text = "";
+        for (var i = event.resultIndex; i < event.results.length; i++) {
+          var r = event.results[i];
+          if (!r || !r.isFinal) continue;
+          text += chooseBestRestaurantTranscript_(r);
+        }
+        text = normalizeRestaurantVoiceTranscriptClient_(String(text || "").trim());
+        if (!text) return;
+        stopConfirmV814_();
+        if (isYesV814_(text) || isNoV814_(text)) {
+          sendConfirmV814_(text);
+          return;
+        }
+        // 別命令なら古い確認を捨て、新しいOperationとして扱う。
+        v814Confirm = null;
+        busy = false;
+        sendCommand(text, "VOICE_BROWSER");
+      };
+      v814ConfirmRecognition.onerror = function() { v814ConfirmRunning = false; };
+      v814ConfirmRecognition.onend = function() {
+        v814ConfirmRunning = false;
+        if (v814Confirm && v814ConfirmTimer) {
+          setTimeout(startConfirmRecognitionV814_, 120);
+        }
+      };
+      v814ConfirmRecognition.start();
+    } catch (err) {
+      v814ConfirmRunning = false;
+      if (v814Confirm && v814ConfirmTimer) setTimeout(startConfirmRecognitionV814_, 250);
+    }
+  }
+
+  function beginConfirmV814_(result) {
+    stopWakeWordRecognition_();
+    stopConfirmV814_();
+    v814Confirm = {
+      operationId: String(result.operationId || ""),
+      text: String(result.confirmationText || result.message || "この内容で実行しますか？")
+    };
+    busy = false;
+    setState("processing", "CONFIRM", "確認内容を読み上げます");
+    showMessage(v814Confirm.text);
+    speak(v814Confirm.text, function() {
+      if (!v814Confirm) return;
+      setState("listening", "CONFIRM", "10秒以内に「はい」または「いいえ」");
+      v814ConfirmTimer = setTimeout(confirmTimeoutV814_, V814_CONFIRM_TIMEOUT_MS);
+      startConfirmRecognitionV814_();
+    });
+  }
+
+  function sendConfirmV814_(answer) {
+    if (!v814Confirm || busy) return;
+    var pending = v814Confirm;
+    busy = true;
+    setState("processing", "CONFIRMING", "確認内容を処理しています...");
+    apiRequest(
+      "order_confirm",
+      { operationId: pending.operationId, answer: answer, deviceId: deviceId },
+      function(result) {
+        busy = false;
+        v814Confirm = null;
+        handleResult(result);
+      },
+      V814_ORDER_TIMEOUT_MS
+    );
+  }
+
+  function makeUnknownV814_() {
+    return {
+      success: false,
+      resultUnknown: true,
+      errorCode: "RESULT_UNKNOWN",
+      message: "注文結果を確認できませんでした。再登録はしていません。",
+      speak: "注文結果を確認できませんでした。再登録はしていません。"
+    };
+  }
+
+  function recoverTimeoutV814_(ctx) {
+    if (!ctx || !ctx.operationId) {
+      busy = false;
+      handleResult(makeUnknownV814_());
+      return;
+    }
+    setState("processing", "VERIFYING", "注文状況を確認しています...");
+    var attempt = 0;
+    var allNotFound = true;
+
+    function finish(result) {
+      busy = false;
+      handleResult(result || makeUnknownV814_());
+    }
+
+    function lookup() {
+      attempt++;
+      apiRequest(
+        "order_lookup",
+        { operationId: ctx.operationId, deviceId: deviceId },
+        function(result) {
+          var st = String(result && result.bridgeState || "");
+          if (st === "SUCCESS" || st === "SHADOW_OK" || st === "FAILED_ZERO_WRITE" || st === "ABORTED" || st === "OPERATION_CONFLICT") {
+            if (st === "SUCCESS" || st === "SHADOW_OK") result.success = true;
+            finish(result);
+            return;
+          }
+          if (st !== "NOT_FOUND") allNotFound = false;
+          if (st === "RECOVERY_REQUIRED") {
+            resend();
+            return;
+          }
+          if (attempt < 4) {
+            setTimeout(lookup, V814_LOOKUP_INTERVAL_MS);
+            return;
+          }
+          if (allNotFound) resend();
+          else finish(makeUnknownV814_());
+        },
+        V814_LOOKUP_TIMEOUT_MS
+      );
+    }
+
+    function resend() {
+      apiRequest(
+        "order_fast",
+        {
+          text: ctx.text,
+          deviceId: deviceId,
+          inputType: ctx.inputType || "VOICE_BROWSER",
+          operationId: ctx.operationId,
+          speechAlternativesJson: ctx.speechAlternativesJson || "",
+          structuredJson: ctx.structuredJson || ""
+        },
+        function(result) {
+          if (result && result.errorCode === "JARVIS_POLL_TIMEOUT") {
+            finish(makeUnknownV814_());
+            return;
+          }
+          finish(result);
+        },
+        V814_ORDER_TIMEOUT_MS
+      );
+    }
+
+    lookup();
+  }
+
+  // 全入力を注文専用FASTへ。Web/一般AIへは送らない。
+  function sendCommand(text, inputType, speechAlternativesV817, structuredV824) {
+    if (!text || busy) return;
+    stopConfirmV814_();
+    v814Confirm = null;
+
+    var normalized = normalizeRestaurantVoiceTranscriptClient_(String(text || "").trim());
+    if (!normalized) return;
+
+    busy = true;
+    var opId = makeOperationIdV814_();
+    var alternativesJsonV817 = "";
+    if (/^VOICE/.test(String(inputType || "").toUpperCase()) && speechAlternativesV817 && speechAlternativesV817.length) {
+      try { alternativesJsonV817 = JSON.stringify(speechAlternativesV817.slice(0,5)); } catch (ignore817) {}
+    }
+
+    var structuredJsonV824 = "";
+    if (structuredV824 && typeof structuredV824 === "object") {
+      try { structuredJsonV824 = JSON.stringify(structuredV824); } catch (ignore824) {}
+    }
+
+    v814ActiveOrder = {
+      operationId: opId,
+      text: normalized,
+      inputType: inputType || "TEXT",
+      speechAlternativesJson: alternativesJsonV817,
+      structuredJson: structuredJsonV824
+    };
+
+    if (structuredJsonV824) {
+      var p824 = structuredV824.product && structuredV824.product.name ? (" / " + structuredV824.product.name) : "";
+      showMessage("FAST STRUCTURED: " + structuredV824.tableNumber + p824 + " / " + structuredV824.action + "\n認識：" + normalized);
+    } else {
+      showMessage(normalized);
+    }
+    setState("processing", "ORDER TURBO", "卓番・商品・状態を確認中...");
+
+    apiRequest(
+      "order_fast",
+      {
+        text: normalized,
+        deviceId: deviceId,
+        inputType: inputType || "TEXT",
+        operationId: opId,
+        speechAlternativesJson: alternativesJsonV817,
+        structuredJson: structuredJsonV824
+      },
+      function(result) {
+        if (result && result.errorCode === "JARVIS_POLL_TIMEOUT") {
+          recoverTimeoutV814_(v814ActiveOrder);
+          return;
+        }
+        busy = false;
+        handleResult(result);
+      },
+      V814_ORDER_TIMEOUT_MS
+    );
+  }
+
+  // v8.5.0: すべての注文音声をgpt-4o-transcribeへ送る高精度経路。
+  function sendAudioBlob(blob, mimeType) {
+    busy = true;
+    setState("processing", "AI TRANSCRIBING", "高精度AIで文字起こししています...");
+    showMessage("録音完了\nAI文字起こし・Tables・Menu照合中...");
+    var reader = new FileReader();
+    reader.onloadend = function() {
+      var dataUrl = String(reader.result || "");
+      var comma = dataUrl.indexOf(",");
+      var base64 = comma >= 0 ? dataUrl.substring(comma + 1) : "";
+      if (!base64) {
+        busy = false;
+        handleResult({ success:false, message:"音声データを読み取れませんでした。" });
+        return;
+      }
+      var opId = makeOperationIdV814_();
+      v814ActiveOrder = { operationId:opId, text:"[ai-audio]", inputType:"VOICE_AI" };
+      apiRequest(
+        "audio_order",
+        {
+          audioBase64: base64,
+          mimeType: mimeType || blob.type || "audio/mp4",
+          deviceId: deviceId,
+          operationId: opId
+        },
+        function(result) {
+          if (result && result.errorCode === "JARVIS_POLL_TIMEOUT") {
+            busy = false;
+            handleResult(makeUnknownV814_());
+            return;
+          }
+          busy = false;
+          handleResult(result);
+        },
+        60000
+      );
+    };
+    reader.onerror = function() {
+      busy = false;
+      handleResult({ success:false, message:"音声データの読み込みに失敗しました。" });
+    };
+    reader.readAsDataURL(blob);
+  }
+
+  // v8.5.0: iPhone SafariでJSONPのload/errorが返らない場合も、
+  // 1回ごとの監視タイマーと全体タイマーで必ず次へ進む。
+  function pollRequestResult_(requestId, callback, timeoutMs) {
+    var startedAt = Date.now();
+    var finished = false;
+    var pollCount = 0;
+    var activeCleanup = null;
+    var limitMs = Math.max(5000, Number(timeoutMs || 20000));
+
+    var hardTimeout = setTimeout(function() {
+      finish({
+        success:false,
+        errorCode:"JARVIS_POLL_TIMEOUT",
+        message:"注文処理の結果を確認できませんでした。再登録はしていません。"
+      });
+    }, limitMs + 250);
+
+    function finish(result) {
+      if (finished) return;
+      finished = true;
+      clearTimeout(hardTimeout);
+      if (activeCleanup) activeCleanup();
+      callback(result);
+    }
+
+    function poll() {
+      if (finished) return;
+      pollCount++;
+      if (state === "processing") {
+        document.getElementById("stateSub").textContent = "AI処理中... " + pollCount;
+      }
+      if (Date.now() - startedAt > limitMs) {
+        finish({
+          success:false,
+          errorCode:"JARVIS_POLL_TIMEOUT",
+          message:"注文処理の結果を確認できませんでした。再登録はしていません。"
+        });
+        return;
+      }
+      var callbackName = "__jarvisPoll_" + requestId.replace(/[^A-Za-z0-9_$]/g, "");
+      var script = document.createElement("script");
+      var cleaned = false;
+      var attemptTimer = null;
+      function cleanup() {
+        if (cleaned) return;
+        cleaned = true;
+        if (attemptTimer) clearTimeout(attemptTimer);
+        if (activeCleanup === cleanup) activeCleanup = null;
+        try { if (script.parentNode) script.parentNode.removeChild(script); } catch (ignore) {}
+        try { delete window[callbackName]; } catch (ignore2) { window[callbackName] = undefined; }
+      }
+      activeCleanup = cleanup;
+      window[callbackName] = function(packet) {
+        packet = packet || {};
+        cleanup();
+        if (packet.ready === true) {
+          acknowledgeRequestResult_(requestId);
+          finish(packet.result || { success:false, message:"GASから空の応答が返りました。" });
+          return;
+        }
+        setTimeout(poll, packet.processing === true ? 250 : 350);
+      };
+      script.onerror = function() { cleanup(); setTimeout(poll, 400); };
+      script.onload = function() {
+        setTimeout(function() {
+          if (!finished && !cleaned) {
+            cleanup();
+            setTimeout(poll, 250);
+          }
+        }, 0);
+      };
+      attemptTimer = setTimeout(function() {
+        if (finished || cleaned) return;
+        cleanup();
+        setTimeout(poll, 180);
+      }, 3000);
+      script.async = true;
+      script.src = GAS_URL + "?api=poll&requestId=" + encodeURIComponent(requestId) + "&callback=" + encodeURIComponent(callbackName) + "&_=" + Date.now();
+      document.head.appendChild(script);
+    }
+    setTimeout(poll, 100);
+  }
+
+  function handleResult(result) {
+    result = result || {};
+    if (result.confirmationRequired === true) {
+      beginConfirmV814_(result);
+      return;
+    }
+
+    stopConfirmV814_();
+    v814Confirm = null;
+    var ok = result.success === true;
+    var message = String(result.message || "応答を取得できませんでした。");
+    var transcript = String(result.normalizedTranscript || result.transcript || "").trim();
+    showMessage(transcript ? ("認識：" + transcript + "\n\n" + message) : message);
+
+    document.getElementById("onlineText").textContent = "AI TRANSCRIBE V8.5.0";
+    if (ok) setState("complete", "COMPLETE", "ORDER TURBO");
+    else setState("error", "ERROR", result.resultUnknown ? "RESULT UNKNOWN" : "注文内容を確認してください");
+
+    // 統計の再取得は注文直後に行わない。次のウェイクワード復帰を優先。
+    var voice = String(result.speak || message);
+    if (voiceEnabled && voice) {
+      speak(voice, function() { setTimeout(returnToStandby, 120); });
+    } else {
+      setTimeout(returnToStandby, 350);
+    }
+  }
+
+  // TTSを少し速く。内容はCore側で短文化する。
+  function speak(text, done) {
+    if (!("speechSynthesis" in window) || !text) { if (done) done(); return; }
+    window.speechSynthesis.cancel();
+    var utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "ja-JP";
+    utterance.rate = 1.16;
+    utterance.pitch = 0.92;
+    utterance.volume = 1;
+    var finished = false;
+    function finish() { if (finished) return; finished = true; if (done) done(); }
+    utterance.onend = finish;
+    utterance.onerror = finish;
+    window.speechSynthesis.speak(utterance);
+    setTimeout(finish, Math.max(1800, String(text).length * 115));
+  }
+
+  // 起動時にUIを注文専用モードとして明示。
+  var loadBootstrapBaseV814_ = loadBootstrap;
+  loadBootstrap = function(options) {
+    // boot / onDoneを必ず元の処理へ渡す。
+    // ここで引数を捨てると、初期情報を取得できても
+    // bootDataReadyが更新されずローディングが永久に閉じない。
+    return loadBootstrapBaseV814_(options || {});
+  };
+  window.loadBootstrap = loadBootstrap;
+
+
+  // Confirmation fallback: text input / mic button also work on old iPhone.
+  window.manualSend = function() {
+    var input = document.getElementById("textInput");
+    var text = String(input.value || "").trim();
+    if (!text || busy) return;
+    input.value = "";
+    if (v814Confirm) {
+      if (isYesV814_(text) || isNoV814_(text)) {
+        stopConfirmV814_();
+        sendConfirmV814_(text);
+        return;
+      }
+      stopConfirmV814_();
+      v814Confirm = null;
+    }
+    sendCommand(text, "TEXT");
+  };
+
+  window.manualListen = function() {
+    if (busy) return;
+    if (v814Confirm) {
+      stopConfirmV814_();
+      startConfirmRecognitionV814_();
+      return;
+    }
+    if (state === "offline") {
+      alert("先にSYSTEM STARTを押してください。");
+      return;
+    }
+    if (!micReady) {
+      setState("error", "MIC ERROR", "マイクが起動していません。");
+      setTimeout(returnToStandby, 1600);
+      return;
+    }
+    stopWakeWordRecognition_();
+    setState("listening", "LISTENING", "ご用件をどうぞ");
+    beginFastVoiceInput_();
+  };
+
+
+  // =====================================================
+  // SERINA JARVIS v8.5.0 HIGH ACCURACY AI ORDER
+  // - Wake word: local Web Speech
+  // - Command body: MediaRecorder -> GAS -> gpt-4o-transcribe
+  // - Menu / VoiceAliases / Tables: AI transcription context + deterministic validation
+  // - GPT Live code remains only for backward compatibility and is not started
+  // =====================================================
+  var V82_MENU_STORAGE_KEY = "serinaJarvisMenuV82";
+  var livePcV82_ = null;
+  var liveDcV82_ = null;
+  var liveTrackV82_ = null;
+  var liveSenderV821_ = null;
+  var liveSpeechSeenV821_ = false;
+  var liveSilenceSinceV821_ = 0;
+  var liveReadyV82_ = false;
+  var liveConnectingV82_ = false;
+  var liveListeningV82_ = false;
+  var liveTranscriptV82_ = "";
+  var liveFinalizeTimerV82_ = null;
+  var liveHardTimerV82_ = null;
+  var liveReconnectTimerV82_ = null;
+  var liveMenuV82_ = null;
+  var liveLastDeltaAtV82_ = 0;
+  var liveStartedAtV82_ = 0;
+  var V82_DELTA_QUIET_MS = 850;
+  var V82_HARD_LISTEN_MS = 8000;
+  var V821_LOCAL_END_SILENCE_MS = 650;
+
+  function v82SafeJsonParse_(s) {
+    try { return JSON.parse(String(s || "")); } catch (e) { return null; }
+  }
+
+  function onBootstrapV82_(data) {
+    if (data && data.preloadMenu) {
+      liveMenuV82_ = data.preloadMenu;
+      try {
+        localStorage.setItem(V82_MENU_STORAGE_KEY, JSON.stringify(liveMenuV82_));
+      } catch (ignore) {}
+    } else if (!liveMenuV82_) {
+      liveMenuV82_ = v82SafeJsonParse_(localStorage.getItem(V82_MENU_STORAGE_KEY));
+    }
+
+    buildLocalMenuIndexV822_();
+    var pc = liveIndexV822_ && liveIndexV822_.products ? liveIndexV822_.products.length : 0;
+    var tc = liveIndexV822_ && liveIndexV822_.tables ? liveIndexV822_.tables.length : 0;
+    document.getElementById("clapLabel").textContent = "PRELOAD " + pc + " MENU / " + tc + " TABLES";
+
+    // v8.5.0: GPT Liveは起動しない。注文本文は録音後に高精度AI文字起こしへ送る。
+  }
+
+  function buildLiveContextV82_() {
+    var preload = liveMenuV82_ || {};
+    var products = Array.isArray(preload.products) ? preload.products : [];
+    var aliases = Array.isArray(preload.aliases) ? preload.aliases : [];
+    var tables = Array.isArray(preload.tables) ? preload.tables : [];
+    var pairs = [];
+    var aliasPairs = [];
+    var seen = {};
+    var i, p, a, key;
+
+    for (i=0; i<products.length && pairs.length<180; i++) {
+      p=products[i]||{};
+      if(!p.name) continue;
+      key=String(p.name||"")+"|"+String(p.reading||"");
+      if(seen[key]) continue;
+      seen[key]=true;
+      pairs.push(String(p.name)+(p.reading ? "（"+String(p.reading)+"）" : ""));
+    }
+    for (i=0; i<aliases.length && aliasPairs.length<80; i++) {
+      a=aliases[i]||{};
+      if(!a.alias || !a.targetName) continue;
+      aliasPairs.push(String(a.alias)+"→"+String(a.targetName));
+    }
+
+    return [
+      "日本語の中華料理店『芹菜』の注文オペレーション音声です。聞こえた発話を省略せず文字起こししてください。",
+      "最重要: 卓番号を推測・補完・変更しない。卓番号候補は " + (tables.length ? tables.join("、") : "0卓、1卓、2卓、3卓、4卓、5卓、6卓、7卓、座1卓、座2卓、座3卓、テイクアウト") + "。",
+      "特に卓番号・数量・商品名を保持する。数字を別の数字へ推測変換しない。",
+      "卓番号の読みは、0卓=ぜろたく、1卓=いったく、2卓=にたく、3卓=さんたく、4卓=よんたく、5卓=ごたく、6卓=ろくたく、7卓=ななたく。『たく』は択・宅・拓ではなく卓として文字に残す。",
+      "既知の同音誤認識: 注文文脈で『味覚』は1卓、『2拓』は2卓、『ザ1卓』は座1卓として表記する。",
+      "注文操作語: 追加、入れて、注文、オーダー、調理済、調理完了、未調理に戻して、提供済、提供完了、完了、注文確認、オーダー確認。",
+      "店内の商品名と読み: " + pairs.join("、") + "。",
+      aliasPairs.length ? ("音声上の別名: " + aliasPairs.join("、") + "。") : "",
+      "商品名は上記候補の発音を優先するが、聞こえない語を勝手に作らない。"
+    ].filter(function(x){return !!x;}).join("\n").slice(0,12000);
+  }
+
+  // =====================================================
+  // v8.2.4 STRUCTURED FAST + PRELOADED MENU/TABLE DICTIONARY
+  // GPT Live = speech-to-text only.
+  // Menu / VoiceAliases / Tables = authoritative local correction dictionary.
+  // Do NOT guess a table number. Product correction is accepted only when unique.
+  // =====================================================
+  var liveIndexV822_ = null;
+
+  function v822Norm_(value) {
+    var s = String(value == null ? "" : value).trim();
+    try { s = s.normalize("NFKC"); } catch (ignore) {}
+    s = s.toLowerCase();
+    var out = "";
+    for (var i=0;i<s.length;i++) {
+      var c=s.charCodeAt(i);
+      if (c>=0x30A1 && c<=0x30F6) out += String.fromCharCode(c-0x60);
+      else out += s.charAt(i);
+    }
+    return out
+      .replace(/[麵麪]/g,"麺")
+      .replace(/坦々|担担/g,"担々")
+      .replace(/ぎょーざ/g,"ぎょうざ")
+      .replace(/まーぼーどーふ/g,"まーぼーどうふ")
+      .replace(/えび/g,"えび")
+      .replace(/[\s　・･、,。.!！?？\-＿_【】\[\]（）()「」『』]/g,"");
+  }
+
+  function v822Lev_(a,b) {
+    a=String(a||""); b=String(b||"");
+    var n=a.length,m=b.length,i,j,prev=[],cur=[];
+    for(j=0;j<=m;j++) prev[j]=j;
+    for(i=1;i<=n;i++) {
+      cur=[i];
+      for(j=1;j<=m;j++) cur[j]=Math.min(cur[j-1]+1,prev[j]+1,prev[j-1]+(a.charAt(i-1)===b.charAt(j-1)?0:1));
+      prev=cur;
+    }
+    return prev[m];
+  }
+
+  function v822Similarity_(a,b) {
+    a=v822Norm_(a); b=v822Norm_(b);
+    if(!a||!b) return 0;
+    if(a===b) return 1;
+    if(a.indexOf(b)>=0 || b.indexOf(a)>=0) {
+      var r=Math.min(a.length,b.length)/Math.max(a.length,b.length);
+      return 0.90 + Math.min(0.08,r*0.08);
+    }
+    var d=v822Lev_(a,b);
+    return Math.max(0,1-d/Math.max(a.length,b.length));
+  }
+
+  function buildLocalMenuIndexV822_() {
+    var preload=liveMenuV82_||{};
+    var products=Array.isArray(preload.products)?preload.products:[];
+    var aliases=Array.isArray(preload.aliases)?preload.aliases:[];
+    var tables=Array.isArray(preload.tables)?preload.tables:[];
+    var entries=[], byTarget={};
+    var i,p,k,a,target;
+
+    for(i=0;i<products.length;i++) {
+      p=products[i]||{};
+      if(!p.name) continue;
+      target=String(p.candidateId||p.number||p.name);
+      byTarget[target]=p;
+      entries.push({term:String(p.name||""), norm:v822Norm_(p.name), product:p, kind:"name"});
+      if(p.reading) entries.push({term:String(p.reading), norm:v822Norm_(p.reading), product:p, kind:"reading"});
+    }
+    for(i=0;i<aliases.length;i++) {
+      a=aliases[i]||{};
+      var hit=null;
+      for(k=0;k<products.length;k++) {
+        p=products[k]||{};
+        if(String(p.name||"")!==String(a.targetName||"")) continue;
+        if(a.targetCategory && String(p.category||"")!==String(a.targetCategory)) continue;
+        if(a.targetNumber && String(p.number||"")!==String(a.targetNumber)) continue;
+        hit=p; break;
+      }
+      if(hit && a.alias) entries.push({term:String(a.alias), norm:v822Norm_(a.normalizedAlias||a.alias), product:hit, kind:"alias"});
+    }
+    liveIndexV822_={products:products,aliases:aliases,tables:tables,entries:entries,snapshotAt:String(preload.snapshotAt||"")};
+    return liveIndexV822_;
+  }
+
+
+  // =====================================================
+  // v8.2.4 TABLE DICTIONARY + STRUCTURED FAST
+  // Tables preload is the whitelist.  GPT Live may output homophones such as
+  // 「二択」「三宅」「にたく」; normalize only when a single valid table is
+  // identifiable.  Never invent a table from a bare quantity number.
+  // =====================================================
+  function v823NumText_(value) {
+    var s = String(value == null ? "" : value);
+    try { s = s.normalize("NFKC"); } catch (ignore) {}
+    var map = {"〇":"0","零":"0","一":"1","二":"2","三":"3","四":"4","五":"5","六":"6","七":"7","八":"8","九":"9"};
+    Object.keys(map).forEach(function(k){ s = s.split(k).join(map[k]); });
+    return s;
+  }
+
+  function v823CanonTable_(value) {
+    var s = v823NumText_(value).replace(/\s+/g,"").trim();
+    if (!s) return "";
+    if (/テイクアウト/.test(s)) return "テイクアウト";
+    s = s.replace(/座敷|座席/g,"座");
+    var z = s.match(/^座([1-3])(?:卓|テーブル)?$/);
+    if (z) return "座" + z[1] + "卓";
+    var m = s.match(/^([0-9]+)(?:番)?(?:卓|テーブル)?$/);
+    if (m) return String(Number(m[1])) + "卓";
+    return s;
+  }
+
+  function v823ResolveTableFromPreload_(canonical) {
+    var idx = liveIndexV822_ || buildLocalMenuIndexV822_();
+    var tables = idx && Array.isArray(idx.tables) ? idx.tables : [];
+    var wanted = v823CanonTable_(canonical);
+    var i, actual;
+    for (i=0; i<tables.length; i++) {
+      actual = String(tables[i] || "");
+      if (v823CanonTable_(actual) === wanted) return actual;
+    }
+    // If preload is temporarily unavailable, keep the restaurant's known safe
+    // fallback set.  The server still revalidates against Tables before write.
+    if (/^[0-7]卓$/.test(wanted) || /^座[1-3]卓$/.test(wanted) || wanted === "テイクアウト") {
+      return wanted;
+    }
+    return "";
+  }
+
+  function v823CollectTableHits_(rawText) {
+    var original = String(rawText || "");
+    var s = v823NumText_(original);
+    var hits = [];
+    var seenSpan = {};
+
+    function add(re, makeCanon, kind) {
+      var m;
+      re.lastIndex = 0;
+      while ((m = re.exec(s)) !== null) {
+        var raw = String(m[0] || "");
+
+        // 「座1卓」の中の「1卓」を通常卓として二重検出しない。
+        // 古いSafari対応のため正規表現の後読みは使わない。
+        if (
+          kind === "TABLE_FORM" &&
+          /(?:座敷|座席|座|ざ|ザ)\s*$/.test(s.substring(0, m.index))
+        ) {
+          if (m[0] === "") re.lastIndex++;
+          continue;
+        }
+
+        var canon = typeof makeCanon === "function" ? makeCanon(m) : String(makeCanon || "");
+        var actual = v823ResolveTableFromPreload_(canon);
+        if (actual) {
+          var key = String(m.index) + ":" + String(m.index + raw.length) + ":" + actual;
+          if (!seenSpan[key]) {
+            seenSpan[key] = true;
+            hits.push({
+              raw: raw,
+              start: m.index,
+              end: m.index + raw.length,
+              table: actual,
+              kind: kind || "EXACT"
+            });
+          }
+        }
+        // Safety for zero-length regexes.
+        if (m[0] === "") re.lastIndex++;
+      }
+    }
+
+    // Strong explicit table forms first.
+    add(/テイクアウト/g, "テイクアウト", "TAKEOUT");
+    add(/(?:座敷|座席|座|ざ|ザ)\s*([1-3])\s*(?:番)?\s*(?:卓|テーブル)?/g, function(m){ return "座" + m[1] + "卓"; }, "ZASHIKI");
+    add(/([0-7])\s*(?:番)?\s*(?:卓|テーブル|宅|択|拓|たく|タク)/g, function(m){ return m[1] + "卓"; }, "TABLE_FORM");
+    add(/(?:卓|テーブル)\s*([0-7])/g, function(m){ return m[1] + "卓"; }, "TABLE_REVERSED");
+
+    // Common kana / homophone outputs from speech recognition.
+    add(/(?:ぜろたく|ゼロタク|れいたく|レイタク)/g, "0卓", "PHONETIC");
+    add(/(?:いったく|イッタク)/g, "1卓", "PHONETIC");
+    add(/(?:にたく|ニタク)/g, "2卓", "PHONETIC");
+    add(/(?:さんたく|サンタク)/g, "3卓", "PHONETIC");
+    add(/(?:よんたく|ヨンタク)/g, "4卓", "PHONETIC");
+    add(/(?:ごたく|ゴタク)/g, "5卓", "PHONETIC");
+    add(/(?:ろくたく|ロクタク)/g, "6卓", "PHONETIC");
+    add(/(?:ななたく|ナナタク|しちたく|シチタク)/g, "7卓", "PHONETIC");
+
+    // 実機で確認された「1卓」→「味覚」。
+    // Live注文処理内だけで、卓番号に使われる位置の場合に限定する。
+    add(/味覚(?=\s|$|[にのではをがへ、。,.!！?？])/g, "1卓", "KNOWN_CONFUSION");
+
+    // Historically observed substitutions. Apply only in restaurant command context.
+    var orderContext = /(追加|入れて|注文|オーダー|調理|未調理|提供|完了|終了|終わ|確認|状況|未提供|残り|残って|教えて|入って|戻して)/.test(s);
+    if (orderContext) {
+      add(/(?:食卓|自宅)/g, "1卓", "KNOWN_CONFUSION");
+      add(/(?:三宅(?:様|さん)?)/g, "3卓", "KNOWN_CONFUSION");
+      add(/(?:委託|お得)/g, "6卓", "KNOWN_CONFUSION");
+    }
+
+    hits.sort(function(a,b){
+      if (a.start !== b.start) return a.start - b.start;
+      return (b.end - b.start) - (a.end - a.start);
+    });
+    return hits;
+  }
+
+  function correctTableTranscriptV823_(rawText) {
+    var raw = String(rawText || "").replace(/\s+/g," ").trim();
+    if (!raw) return {text:"", changed:false, table:"", ambiguous:false, hits:[]};
+
+    var hits = v823CollectTableHits_(raw);
+    if (!hits.length) return {text:raw, changed:false, table:"", ambiguous:false, hits:[]};
+
+    var unique = {};
+    var tables = [];
+    var i;
+    for (i=0; i<hits.length; i++) {
+      var t = String(hits[i].table || "");
+      if (t && !unique[t]) { unique[t] = true; tables.push(t); }
+    }
+
+    // Two different table candidates in one speech turn are not safe for a
+    // single-table command. Leave untouched and let Core clarify.
+    if (tables.length > 1) {
+      return {text:raw, changed:false, table:"", ambiguous:true, tables:tables, hits:hits};
+    }
+
+    var selected = hits[0];
+    var canonical = tables[0] || "";
+    if (!canonical) return {text:raw, changed:false, table:"", ambiguous:false, hits:hits};
+
+    // If it is already the canonical spelling, no rewrite is required.
+    var before = raw.substring(0, selected.start);
+    var after = raw.substring(selected.end);
+    var rewritten = before + canonical + after;
+
+    return {
+      text: rewritten,
+      changed: rewritten !== raw,
+      table: canonical,
+      ambiguous:false,
+      hit:selected,
+      hits:hits
+    };
+  }
+
+  function v822ExtractProductPhrase_(text) {
+    var s=String(text||"");
+    // Table phrases and known speech confusions are removed only from product-search text.
+    s=s.replace(/(?:テイクアウト|(?:座敷|座|ざ|ザ)\s*[1-3]\s*卓?|[0-7]\s*(?:番)?\s*(?:卓|テーブル|宅|択|拓|たく|タク)|(?:卓|テーブル)\s*[0-7]|味覚|食卓|自宅|三宅(?:様|さん)?|委託|お得)/g," ");
+    s=s.replace(/(?:追加(?:して|してください|お願い)?|入れて(?:ください)?|注文(?:して|してください)?|オーダー(?:して|してください)?|調理済(?:み)?|調理完了|提供済(?:み)?|提供完了|完了(?:しました|して)?|未調理に戻して|戻して|確認(?:して|してください)?|教えて(?:ください)?|状況)/g," ");
+    s=s.replace(/[0-9０-９一二三四五六七八九十百]+\s*(?:点|個|枚|皿|つ|人前|本|杯)/g," ");
+    s=s.replace(/(?:を|に|へ|の|で|と|が|は|も|ください|お願い|お願いします)/g," ");
+    return s.replace(/[\s　、,。.!！?？]+/g,"").trim();
+  }
+
+  function v822FindProduct_(rawText) {
+    var idx=liveIndexV822_||buildLocalMenuIndexV822_();
+    var phrase=v822ExtractProductPhrase_(rawText);
+    var key=v822Norm_(phrase);
+    var fullKey=v822Norm_(rawText);
+    if(!key) return {product:null,score:0,reason:"NO_PHRASE",phrase:phrase};
+    var scores={}, rows=[];
+    for(var i=0;i<idx.entries.length;i++) {
+      var e=idx.entries[i]; if(!e.norm) continue;
+      var score=0;
+      if(key===e.norm) score=(e.kind==="alias"?0.995:1.0);
+      else if(fullKey.indexOf(e.norm)>=0) score=(e.kind==="alias"?0.98:0.99);
+      else score=v822Similarity_(key,e.norm);
+      var id=String(e.product.candidateId||e.product.number||e.product.name);
+      if(!scores[id] || scores[id].score<score) scores[id]={product:e.product,score:score,term:e.term,kind:e.kind};
+    }
+    Object.keys(scores).forEach(function(id){ rows.push(scores[id]); });
+    rows.sort(function(a,b){ return b.score-a.score; });
+    var top=rows[0], second=rows[1];
+    if(!top) return {product:null,score:0,reason:"NO_CANDIDATE",phrase:phrase};
+    var margin=top.score-(second?second.score:0);
+    // Conservative thresholds: typo correction only when the candidate is clearly unique.
+    var accept=(top.score>=0.84 && margin>=0.12) || top.score>=0.97;
+    if(!accept) return {product:null,score:top.score,secondScore:second?second.score:0,reason:"AMBIGUOUS",phrase:phrase,candidates:rows.slice(0,3)};
+    return {product:top.product,score:top.score,secondScore:second?second.score:0,reason:top.kind.toUpperCase(),phrase:phrase,matchedTerm:top.term};
+  }
+
+  function correctLiveTranscriptV822_(rawText) {
+    var raw=String(rawText||"").replace(/\s+/g," ").trim();
+    if(!raw) return {text:"",raw:"",changed:false};
+
+    // Table first: this preserves the table token while product extraction
+    // removes table words from the candidate phrase.
+    var tableFix = correctTableTranscriptV823_(raw);
+    if (tableFix.ambiguous) {
+      return {
+        text:raw,
+        raw:raw,
+        changed:false,
+        tableAmbiguous:true,
+        tableFix:tableFix,
+        product:null,
+        match:null
+      };
+    }
+
+    var s=normalizeRestaurantVoiceTranscriptClient_(String(tableFix.text || raw));
+    var match=v822FindProduct_(s);
+    if(match.product && match.product.name) {
+      var phrase=String(match.phrase||"");
+      if(phrase && phrase!==String(match.product.name)) {
+        var pos=s.indexOf(phrase);
+        if(pos>=0) s=s.substring(0,pos)+String(match.product.name)+s.substring(pos+phrase.length);
+      }
+    }
+    return {
+      text:s,
+      raw:raw,
+      changed:s!==raw,
+      table:String(tableFix.table||""),
+      tableFix:tableFix,
+      product:match.product||null,
+      match:match
+    };
+  }
+
+
+  // =====================================================
+  // v8.2.4 STRUCTURED FAST PACKET
+  // Once Tables/Menu dictionaries have identified canonical entities, do not
+  // make Core parse the same free text again. Send the canonical table/product
+  // alongside the transcript. Core revalidates them against the live snapshot.
+  // =====================================================
+  function v824Action_(text) {
+    var s=String(text||"");
+    if (/(?:調理済|調理完了|上がった|上がり|未調理.*戻|未調理にして)/.test(s)) return "COOK";
+    if (/(?:提供済|提供完了|オーダー完了|注文完了|完了|終了|終わり)/.test(s)) return "COMPLETE";
+    if (/[?？]/.test(s) || /(?:何頼ん|何が入って|未提供|残って|状況|確認して|注文確認|オーダー確認|教えて|入ってる)/.test(s)) return "READ";
+    if (/(?:追加|入れて|入ります|入れます|注文|オーダー)/.test(s)) return "ADD";
+    return "";
+  }
+
+  function v824Quantity_(text, action) {
+    var s=v823NumText_(String(text||""));
+    s=s
+      .replace(/ひとつ|一つ/g,"1つ")
+      .replace(/ふたつ|二つ/g,"2つ")
+      .replace(/みっつ|三つ/g,"3つ")
+      .replace(/よっつ|四つ/g,"4つ")
+      .replace(/いつつ|五つ/g,"5つ")
+      .replace(/むっつ|六つ/g,"6つ");
+    var re=/([0-9]{1,2})\s*(?:点|個|枚|皿|つ|人前|本|杯|セット)/g,m,last=null;
+    while((m=re.exec(s))!==null) last=Number(m[1]);
+    if(last!=null && isFinite(last) && last>0 && last<=99) return last;
+    return action==="ADD" ? 1 : null;
+  }
+
+  function v824BuildStructured_(commandText, corrected) {
+    corrected=corrected||{};
+    var action=v824Action_(commandText);
+    var table=String(corrected.table||"");
+    var product=corrected.product||null;
+    if(!action || !table) return null;
+    if(action==="ADD" && !product) return null;
+    // For state changes we only use structured mode when product has been
+    // identified. Table-wide completion can continue through the legacy safe parser.
+    if((action==="COOK" || action==="COMPLETE") && !product) return null;
+    var qty=v824Quantity_(commandText,action);
+    var packet={
+      schemaVersion:"JARVIS_STRUCTURED_8_2_4",
+      action:action,
+      tableNumber:table,
+      quantity:qty,
+      transcript:String(commandText||""),
+      product:null
+    };
+    if(product) {
+      packet.product={
+        candidateId:String(product.candidateId||""),
+        name:String(product.name||""),
+        category:String(product.category||""),
+        number:String(product.number||"")
+      };
+    }
+    if(action==="COOK") packet.cookingState=/(?:未調理.*戻|未調理にして)/.test(String(commandText||""))?"未調理":"調理済";
+    return packet;
+  }
+
+  function waitIceCompleteV82_(pc, done) {
+    var finished = false;
+    var timer = setTimeout(finish, 1200);
+    function finish() {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      try { pc.removeEventListener("icegatheringstatechange", onState); } catch (ignore) {}
+      done();
+    }
+    function onState() {
+      if (pc.iceGatheringState === "complete") finish();
+    }
+    if (pc.iceGatheringState === "complete") { finish(); return; }
+    pc.addEventListener("icegatheringstatechange", onState);
+  }
+
+  function closeLiveV82_(scheduleReconnect) {
+    liveReadyV82_ = false;
+    liveConnectingV82_ = false;
+    liveListeningV82_ = false;
+    if (liveFinalizeTimerV82_) { clearTimeout(liveFinalizeTimerV82_); liveFinalizeTimerV82_ = null; }
+    if (liveHardTimerV82_) { clearTimeout(liveHardTimerV82_); liveHardTimerV82_ = null; }
+    try { if (liveSenderV821_) liveSenderV821_.replaceTrack(null); } catch (ignore0) {}
+    try { if (liveTrackV82_) liveTrackV82_.stop(); } catch (ignore1) {}
+    try { if (liveDcV82_) liveDcV82_.close(); } catch (ignore2) {}
+    try { if (livePcV82_) livePcV82_.close(); } catch (ignore3) {}
+    liveTrackV82_ = null;
+    liveSenderV821_ = null;
+    liveDcV82_ = null;
+    livePcV82_ = null;
+    if (scheduleReconnect && micReady && state === "standby") {
+      if (liveReconnectTimerV82_) clearTimeout(liveReconnectTimerV82_);
+      liveReconnectTimerV82_ = setTimeout(initLiveTranscribeV82_, 1800);
+    }
+  }
+
+  function sendLiveEventV82_(obj) {
+    if (!liveDcV82_ || liveDcV82_.readyState !== "open") return false;
+    try { liveDcV82_.send(JSON.stringify(obj)); return true; } catch (e) { return false; }
+  }
+
+  function setLiveReadyV82_() {
+    if (liveReadyV82_) return;
+    liveReadyV82_ = true;
+    liveConnectingV82_ = false;
+    document.getElementById("onlineText").textContent = "LIVE READY V8.5.0";
+    document.getElementById("clapLabel").textContent = "WAKE WORD + GPT LIVE";
+    sendLiveEventV82_({
+      type: "session.instructions.append",
+      content: buildLiveContextV82_()
+    });
+  }
+
+  function handleLiveEventV82_(evt) {
+    var msg = v82SafeJsonParse_(evt && evt.data);
+    if (!msg) return;
+    var type = String(msg.type || "");
+
+    if (type === "session.started" || type === "session.created") {
+      setLiveReadyV82_();
+      return;
+    }
+
+    if (type === "error") {
+      if (liveListeningV82_) {
+        stopLiveListenV82_(true);
+      }
+      return;
+    }
+
+    var delta = "";
+    if (type === "input_transcript.delta") delta = String(msg.delta || "");
+    else if (type === "conversation.item.input_audio_transcription.delta") delta = String(msg.delta || "");
+    else if (type === "transcription.delta") delta = String(msg.delta || "");
+
+    if (delta && liveListeningV82_) {
+      liveTranscriptV82_ += delta;
+      liveLastDeltaAtV82_ = Date.now();
+      showMessage("認識中：" + String(liveTranscriptV82_).trim());
+      // v8.2.1: delta間隔では確定しない。発話終了VADを待つ。
+      if (/以上[。！!]?\s*$/.test(liveTranscriptV82_)) scheduleLiveFinalizeV82_(300);
+      return;
+    }
+
+    if (type === "conversation.item.input_audio_transcription.completed" || type === "transcription.completed") {
+      if (msg.transcript) liveTranscriptV82_ = String(msg.transcript);
+      if (liveListeningV82_) scheduleLiveFinalizeV82_(380);
+      return;
+    }
+
+    if (type === "input_audio_buffer.speech_stopped" || type === "input_audio.speech_stopped") {
+      if (liveListeningV82_ && liveTranscriptV82_.trim()) scheduleLiveFinalizeV82_(450);
+    }
+  }
+
+  function initLiveTranscribeV82_() {
+    if (liveReadyV82_ || liveConnectingV82_ || !micReady || !micStream) return;
+    if (!window.RTCPeerConnection) return;
+    var sourceTrack = micStream.getAudioTracks && micStream.getAudioTracks()[0];
+    if (!sourceTrack) return;
+
+    liveConnectingV82_ = true;
+    document.getElementById("onlineText").textContent = "LIVE WARMING V8.5.0";
+
+    try {
+      var pc = new RTCPeerConnection();
+      livePcV82_ = pc;
+
+      // v8.2.1 IMPORTANT:
+      // STANDBY中にmicStreamのcloneをWebRTCへ保持すると、iOS15 Safariで
+      // Web Speechのウェイクワード認識と競合することがある。
+      // そのため起動時は「空のsendonly audio transceiver」だけでLiveを温め、
+      // 「ジャービス」を検出した後にだけ実マイクtrackをreplaceTrackする。
+      var transceiver = pc.addTransceiver("audio", { direction: "sendonly" });
+      liveSenderV821_ = transceiver.sender;
+      liveTrackV82_ = null;
+
+      var dc = pc.createDataChannel("oai-events");
+      liveDcV82_ = dc;
+      dc.onmessage = handleLiveEventV82_;
+      dc.onopen = function() {
+        // New Live API emits session.started; older-compatible transports may only open the channel.
+        setTimeout(function(){
+          if (liveDcV82_ === dc && dc.readyState === "open" && !liveReadyV82_) setLiveReadyV82_();
+        }, 700);
+      };
+      dc.onclose = function(){ if (livePcV82_ === pc) closeLiveV82_(true); };
+      dc.onerror = function(){ if (livePcV82_ === pc && !liveReadyV82_) closeLiveV82_(true); };
+
+      pc.onconnectionstatechange = function() {
+        var cs = String(pc.connectionState || "");
+        if (cs === "failed" || cs === "closed") closeLiveV82_(true);
+      };
+
+      pc.createOffer({offerToReceiveAudio:false}).then(function(offer){
+        return pc.setLocalDescription(offer).then(function(){
+          waitIceCompleteV82_(pc, function(){
+            if (livePcV82_ !== pc || !pc.localDescription) return;
+            apiRequest(
+              "live_offer",
+              { sdpOffer: pc.localDescription.sdp, deviceId: deviceId },
+              function(result) {
+                if (livePcV82_ !== pc) return;
+                if (!result || result.success !== true || !result.answerSdp) {
+                  closeLiveV82_(true);
+                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V8.5.0";
+                  return;
+                }
+                pc.setRemoteDescription({type:"answer", sdp:String(result.answerSdp)}).catch(function(){
+                  closeLiveV82_(true);
+                });
+              },
+              18000
+            );
+          });
+        });
+      }).catch(function(){ closeLiveV82_(true); });
+    } catch (err) {
+      closeLiveV82_(true);
+    }
+  }
+
+  function scheduleLiveFinalizeV82_(delayMs) {
+    if (liveFinalizeTimerV82_) clearTimeout(liveFinalizeTimerV82_);
+    liveFinalizeTimerV82_ = setTimeout(function(){ finalizeLiveTranscriptV82_(false); }, Number(delayMs || V82_DELTA_QUIET_MS));
+  }
+
+  function stopLiveListenV82_(keepConnection) {
+    liveListeningV82_ = false;
+    liveSpeechSeenV821_ = false;
+    liveSilenceSinceV821_ = 0;
+    try { if (liveSenderV821_) liveSenderV821_.replaceTrack(null); } catch (ignore0) {}
+    try { if (liveTrackV82_) liveTrackV82_.stop(); } catch (ignore1) {}
+    liveTrackV82_ = null;
+    if (liveFinalizeTimerV82_) { clearTimeout(liveFinalizeTimerV82_); liveFinalizeTimerV82_ = null; }
+    if (liveHardTimerV82_) { clearTimeout(liveHardTimerV82_); liveHardTimerV82_ = null; }
+    if (!keepConnection) closeLiveV82_(true);
+  }
+
+  function finalizeLiveTranscriptV82_(hardTimeout) {
+    if (!liveListeningV82_) return;
+    // Disable media first, then allow a short tail window for the final transcript delta.
+    try { if (liveSenderV821_) liveSenderV821_.replaceTrack(null); } catch (ignore0) {}
+    try { if (liveTrackV82_) liveTrackV82_.stop(); } catch (ignore1) {}
+    liveTrackV82_ = null;
+    liveListeningV82_ = false;
+    liveSpeechSeenV821_ = false;
+    liveSilenceSinceV821_ = 0;
+    if (liveFinalizeTimerV82_) { clearTimeout(liveFinalizeTimerV82_); liveFinalizeTimerV82_ = null; }
+    if (liveHardTimerV82_) { clearTimeout(liveHardTimerV82_); liveHardTimerV82_ = null; }
+
+    setTimeout(function(){
+      var text = String(liveTranscriptV82_ || "").replace(/\s+/g, " ").trim();
+      liveTranscriptV82_ = "";
+      if (!text) {
+        setState("listening", "LISTENING", "音声をもう一度お願いします");
+        // Reliable fallback used by v8.1.7.
+        beginFastVoiceInputBaseV82_();
+        return;
+      }
+      var correctedV822 = correctLiveTranscriptV822_(text);
+
+      if (correctedV822.tableAmbiguous) {
+        var ambTables = correctedV822.tableFix && correctedV822.tableFix.tables
+          ? correctedV822.tableFix.tables.join(" / ")
+          : "";
+        setState("error", "TABLE CHECK", "卓番号が競合しました。もう一度、卓番号から話してください。");
+        showMessage("GPT認識：" + text + (ambTables ? "\n卓候補：" + ambTables : ""));
+        speak("卓番号を正確に聞き取れませんでした。卓番号からもう一度お願いします。", function(){
+          setTimeout(returnToStandby, 250);
+        });
+        return;
+      }
+
+      var commandTextV822 = String(correctedV822.text || text).trim();
+      setState("processing", "LIVE TRANSCRIBED", "Tables / Menu辞書で照合して高速処理しています...");
+
+      var lines = ["GPT認識：" + text];
+      if (correctedV822.table) lines.push("卓判定：" + correctedV822.table);
+      if (correctedV822.changed) lines.push("辞書補正：" + commandTextV822);
+      else lines.push("認識確定：" + commandTextV822);
+      var structuredV824 = v824BuildStructured_(commandTextV822, correctedV822);
+      if (structuredV824) {
+        var pNameV824 = structuredV824.product && structuredV824.product.name ? structuredV824.product.name : "";
+        lines.push("FAST確定：" + structuredV824.tableNumber + (pNameV824 ? " / " + pNameV824 : "") + " / " + structuredV824.action);
+      }
+      showMessage(lines.join("\n"));
+
+      sendCommand(commandTextV822, "VOICE_LIVE", null, structuredV824);
+    }, hardTimeout ? 120 : 260);
+  }
+
+  function monitorLiveSpeechV821_(metrics) {
+    if (!liveListeningV82_) return;
+    var now = Date.now();
+    var rms = Number(metrics && metrics.rms || 0);
+    var threshold = legacyIOSCommandRecorderV815_
+      ? Math.max(0.013, noiseFloor * 1.18)
+      : Math.max(0.020, noiseFloor * 1.45);
+
+    if (rms >= threshold) {
+      liveSpeechSeenV821_ = true;
+      liveSilenceSinceV821_ = 0;
+      return;
+    }
+
+    if (liveSpeechSeenV821_) {
+      if (!liveSilenceSinceV821_) liveSilenceSinceV821_ = now;
+      if (now - liveSilenceSinceV821_ >= V821_LOCAL_END_SILENCE_MS) {
+        // Transcriptの末尾deltaが届く猶予を確保してから確定。
+        scheduleLiveFinalizeV82_(360);
+        liveSpeechSeenV821_ = false;
+        liveSilenceSinceV821_ = 0;
+      }
+    }
+  }
+
+  function startLiveOrderV82_() {
+    if (!liveReadyV82_ || !liveSenderV821_ || !liveDcV82_ || liveDcV82_.readyState !== "open") return false;
+    var sourceTrack = micStream && micStream.getAudioTracks && micStream.getAudioTracks()[0];
+    if (!sourceTrack) return false;
+
+    commandModeActive = true;
+    liveTranscriptV82_ = "";
+    liveLastDeltaAtV82_ = 0;
+    liveStartedAtV82_ = Date.now();
+    liveSpeechSeenV821_ = false;
+    liveSilenceSinceV821_ = 0;
+    liveListeningV82_ = true;
+    if (commandDeadlineTimer) { clearTimeout(commandDeadlineTimer); commandDeadlineTimer = null; }
+    setState("listening", "GPT LIVE", "ご用件をどうぞ");
+    showMessage("");
+
+    try {
+      var clone = sourceTrack.clone();
+      clone.enabled = true;
+      liveTrackV82_ = clone;
+      var rp = liveSenderV821_.replaceTrack(clone);
+      if (rp && typeof rp.catch === "function") {
+        rp.catch(function(){
+          if (liveListeningV82_) {
+            stopLiveListenV82_(true);
+            beginFastVoiceInputBaseV82_();
+          }
+        });
+      }
+    } catch (e) {
+      liveListeningV82_ = false;
+      return false;
+    }
+
+    liveHardTimerV82_ = setTimeout(function(){ finalizeLiveTranscriptV82_(true); }, V82_HARD_LISTEN_MS);
+    return true;
+  }
+
+  // v8.5.0: Wake word stays on Web Speech, but every order body is recorded
+  // and sent to gpt-4o-transcribe. GPT Live/Web Speech text never registers an order.
+  var beginFastVoiceInputBaseV82_ = beginFastVoiceInput_;
+  beginFastVoiceInput_ = function() {
+    stopWakeWordRecognition_();
+    beginFastVoiceInputBaseV82_();
+  };
+
+  // Live session is not used in high-accuracy mode.
+  var returnToStandbyBaseV82_ = returnToStandby;
+  returnToStandby = function(subText) {
+    stopLiveListenV82_(true);
+    returnToStandbyBaseV82_(subText);
+  };
+
+  // Manual mic also uses recorded high-accuracy AI transcription.
+  window.manualListen = function() {
+    if (busy) return;
+    if (v814Confirm) {
+      stopConfirmV814_();
+      startConfirmRecognitionV814_();
+      return;
+    }
+    if (state === "offline") { alert("先にSYSTEM STARTを押してください。"); return; }
+    if (!micReady) { setState("error", "MIC ERROR", "マイクが起動していません。"); setTimeout(returnToStandby, 1600); return; }
+    stopWakeWordRecognition_();
+    beginFastVoiceInputBaseV82_();
+  };
+
+  // Restore cached menu immediately; latest data is refreshed by bootstrap in the background.
+  try {
+    if (!liveMenuV82_) liveMenuV82_ = v82SafeJsonParse_(localStorage.getItem(V82_MENU_STORAGE_KEY));
+    if (liveMenuV82_) buildLocalMenuIndexV822_();
+  } catch (ignoreV82) {}
+
+  // v8.5: feature detection, bounded capture, server-side catalog agent.
+  var agentCapture850 = null, agentConfirmOp850 = '', agentSpeechSerial850 = 0;
+  function viewport850() {
+    var h=window.visualViewport?window.visualViewport.height:window.innerHeight;
+    var w=window.visualViewport?window.visualViewport.width:window.innerWidth;
+    document.documentElement.style.setProperty('--app-height',Math.round(h)+'px');
+    document.documentElement.setAttribute('data-compact',h<650||w<360?'true':'false');
+    document.documentElement.setAttribute('data-short',h<420?'true':'false');
+  }
+  window.addEventListener('resize',viewport850);
+  window.addEventListener('orientationchange',viewport850);
+  if(window.visualViewport) window.visualViewport.addEventListener('resize',viewport850);
+  viewport850();
+  function captureUi850(on) {
+    document.getElementById('captureControls850').style.display=on?'flex':'none';
+  }
+  function cleanCapture850(c) {
+    clearInterval(c.timer);clearTimeout(c.stopWatch);
+    if(c.node){c.node.onaudioprocess=null;try{c.node.disconnect();c.source.disconnect();c.gain.disconnect();}catch(ignore){}}
+    captureUi850(false);
+    if(agentCapture850===c)agentCapture850=null;
+  }
+  function wav850(chunks,rate) {
+    var count=0;chunks.forEach(function(a){count+=a.length;});
+    var samples=new Float32Array(count),offset=0;
+    chunks.forEach(function(a){samples.set(a,offset);offset+=a.length;});
+    // Downsample PCM for old Safari: 16 kHz mono / 16 bit, about 32 KB per second.
+    var target=Math.min(16000,rate),ratio=rate/target,n=Math.floor(count/ratio);
+    var buffer=new ArrayBuffer(44+n*2),v=new DataView(buffer);
+    function str(at,s){for(var i=0;i<s.length;i++)v.setUint8(at+i,s.charCodeAt(i));}
+    str(0,'RIFF');v.setUint32(4,36+n*2,true);str(8,'WAVE');str(12,'fmt ');v.setUint32(16,16,true);
+    v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,target,true);v.setUint32(28,target*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);str(36,'data');v.setUint32(40,n*2,true);
+    for(var k=0;k<n;k++) {var a=Math.floor(k*ratio),b=Math.max(a+1,Math.floor((k+1)*ratio)),sum=0;for(var j=a;j<b&&j<count;j++)sum+=samples[j];var x=Math.max(-1,Math.min(1,sum/(b-a)));v.setInt16(44+k*2,x<0?x*32768:x*32767,true);}
+    return new Blob([buffer],{type:'audio/wav'});
+  }
+  function finishCapture850(c,blob) {
+    if(c.done)return;c.done=true;cleanCapture850(c);
+    if(c.cancelled)return;
+    commandModeActive=false;
+    if(!blob||blob.size<256||Date.now()-c.started<350){busy=false;handleResult({success:false,message:'録音データが取れませんでした。マイクを押して再度お話しください。'});return;}
+    sendAudioBlob(blob,blob.type);
+  }
+  function pcmCapture850(c) {
+    if(!audioContext||!audioContext.createScriptProcessor)throw new Error('録音API非対応');
+    c.pcm=[];c.source=audioContext.createMediaStreamSource(micStream);
+    c.node=audioContext.createScriptProcessor(4096,1,1);c.gain=audioContext.createGain();c.gain.gain.value=0;
+    c.node.onaudioprocess=function(e){if(c.stopping||c.done)return;var a=e.inputBuffer.getChannelData(0);c.pcm.push(new Float32Array(a));};
+    c.source.connect(c.node);c.node.connect(c.gain);c.gain.connect(audioContext.destination);c.mode='WAV';
+  }
+  function startCapture850() {
+    if(agentCapture850||busy)return;
+    if(!micStream){handleResult({success:false,message:'SYSTEM STARTでマイクを起動してください。'});return;}
+    if(commandDeadlineTimer){clearTimeout(commandDeadlineTimer);commandDeadlineTimer=null;}
+    commandModeActive=false;stopWakeWordRecognition_();
+    if(window.speechSynthesis)window.speechSynthesis.cancel();
+    if(audioContext&&audioContext.state==='suspended')audioContext.resume().catch(function(){});
+    var c={started:Date.now(),lastVoice:0,voiceMs:0,lastTick:Date.now(),chunks:[],mode:'MediaRecorder',done:false};agentCapture850=c;
+    try {
+      if(!window.MediaRecorder)pcmCapture850(c);
+      else {
+        var mime=chooseRecordingMimeType();
+        try {c.recorder=mime?new MediaRecorder(micStream,{mimeType:mime,audioBitsPerSecond:64000}):new MediaRecorder(micStream);}
+        catch(nativeError){pcmCapture850(c);}
+        if(c.recorder){
+          c.recorder.ondataavailable=function(e){if(e.data&&e.data.size)c.chunks.push(e.data);};
+          c.recorder.onstop=function(){finishCapture850(c,new Blob(c.chunks,{type:c.recorder.mimeType||mime||'audio/mp4'}));};
+          c.recorder.onerror=function(){if(c.done)return;c.cancelled=true;try{c.recorder.stop();}catch(ignore){}cleanCapture850(c);busy=false;handleResult({success:false,message:'録音に失敗しました。Safariで開き直してマイクを押してください。'});};
+          try{c.recorder.start(250);}catch(startError){c.recorder=null;pcmCapture850(c);}
+        }
+      }
+      setState('listening','LISTENING','話し終わったら「送信」も使えます');showMessage('');captureUi850(true);
+      c.timer=setInterval(function(){
+        if(c.done||c.stopping)return;
+        var now=Date.now(),elapsed=now-c.started,dt=Math.min(150,now-c.lastTick);c.lastTick=now;
+        var rms=0;try{rms=readAudioMetrics().rms||0;}catch(ignore){}
+        var threshold=Math.max(0.012,Math.min(0.06,(noiseFloor||0.008)*1.8));
+        if(rms>threshold){c.voiceMs+=dt;c.lastVoice=now;}
+        var heard=c.voiceMs>=180;
+        document.getElementById('recordStatus850').textContent=c.mode+' '+(elapsed/1000).toFixed(1)+'秒'+(heard?'・音声検出':'・録音中');
+        // Independent timer remains active even when the analyser fails or gives zeroes.
+        if(elapsed>=20000||(heard&&now-c.lastVoice>=1100&&elapsed>=1000)||(!heard&&elapsed>=8000))window.finishVoice850();
+      },100);
+    }catch(e){cleanCapture850(c);busy=false;handleResult({success:false,message:'この端末で録音を開始できません。Safariとマイク権限を確認してください。'});}
+  }
+  window.finishVoice850=function(){
+    var c=agentCapture850;if(!c||c.stopping||c.done)return;c.stopping=true;clearInterval(c.timer);
+    if(c.recorder){c.stopWatch=setTimeout(function(){if(!c.done){c.done=true;cleanCapture850(c);busy=false;handleResult({success:false,message:'録音の終了応答がありません。再度マイクを押してください。'});}},4000);try{c.recorder.stop();}catch(e){finishCapture850(c,null);}}
+    else finishCapture850(c,wav850(c.pcm,audioContext.sampleRate));
+  };
+  window.cancelVoice850=function(){var c=agentCapture850;if(!c)return;c.cancelled=true;window.finishVoice850();agentConfirmOp850='';busy=false;returnToStandby('録音を取り消しました');};
+  beginVoiceRecording=startCapture850;
+  beginFastVoiceInput_=startCapture850;
+  beginFastVoiceInputBaseV82_=startCapture850;
+  window.manualListen=function(){
+    if(busy)return;
+    if(agentCapture850){window.finishVoice850();return;}
+    if(state==='offline'){alert('先にSYSTEM STARTを押してください。');return;}
+    agentSpeechSerial850++;
+    agentConfirmOp850=v814Confirm?String(v814Confirm.operationId):'';
+    stopConfirmV814_();startCapture850();
+  };
+  // Keep original words: avoid client-side fuzzy menu/table substitutions.
+  sendCommand=function(text,inputType){
+    if(busy||agentCapture850||!String(text||'').trim())return;
+    stopWakeWordRecognition_();stopConfirmV814_();v814Confirm=null;agentConfirmOp850='';busy=true;
+    document.getElementById('confirmControls850').style.display='none';
+    var op=makeOperationIdV814_();v814ActiveOrder={operationId:op,text:String(text),inputType:inputType||'TEXT'};
+    setState('processing','INTERPRETING','卓・メニュー・数量を確認しています');
+    apiRequest('order_fast',{text:String(text),inputType:inputType||'TEXT',operationId:op,deviceId:deviceId},function(r){busy=false;handleResult(r);},60000);
+  };
+  var agentCoreReady850=false;
+  var originalApiRequest850=apiRequest;
+  apiRequest=function(action,data,callback,timeout){
+    if(action==='bootstrap'){return originalApiRequest850(action,data,function(r){agentCoreReady850=!!(r&&String(r.version||r.coreVersion).indexOf('V8_5_0')>=0);callback(r);if(!agentCoreReady850){document.getElementById('onlineText').textContent='GAS UPDATE REQUIRED';showMessage('GAS側をv8.5.0へ更新・再デプロイしてください。');}},timeout);}
+    if(!agentCoreReady850&&/^(audio_order|order_fast|order_confirm)$/.test(action)){callback({success:false,message:'GAS側のv8.5.0を確認できません。GASを更新してからSYSTEM STARTで起動し直してください。',noMutation:true});return;}
+    if(action==='audio_order'&&agentConfirmOp850){data.confirmationOperationId=agentConfirmOp850;agentConfirmOp850='';}
+    return originalApiRequest850(action,data,callback,timeout);
+  };
+  window.confirmAgent850=function(answer){
+    if(!v814Confirm||busy||agentCapture850)return;
+    stopConfirmV814_();agentSpeechSerial850++;if(window.speechSynthesis)window.speechSynthesis.cancel();document.getElementById('confirmControls850').style.display='none';sendConfirmV814_(answer);
+  };
+  beginConfirmV814_=function(result){
+    stopWakeWordRecognition_();stopConfirmV814_();busy=false;
+    v814Confirm={operationId:String(result.operationId||''),text:String(result.confirmationText||result.message)};
+    document.getElementById('confirmControls850').style.display='flex';
+    setState('processing','CONFIRM','まだ登録していません');showMessage(v814Confirm.text);
+    function ready(){if(!v814Confirm||busy)return;setState('listening','CONFIRM','はい／いいえ、または確認ボタン');v814ConfirmTimer=setTimeout(confirmTimeoutV814_,30000);startConfirmRecognitionV814_();}
+    if(voiceEnabled)speak(v814Confirm.text,ready);else ready();
+  };
+  // Browser recognition is used only for yes/no. Unexpected words NEVER become new orders.
+  startConfirmRecognitionV814_=function(){
+    if(!v814Confirm||v814ConfirmRunning||!SpeechRecognitionCtor||agentCapture850)return;
+    try{
+      var r=new SpeechRecognitionCtor();v814ConfirmRecognition=r;r.lang='ja-JP';r.continuous=false;r.interimResults=false;r.maxAlternatives=1;
+      r.onstart=function(){v814ConfirmRunning=true;};
+      r.onresult=function(e){var t='';for(var i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)t+=e.results[i][0].transcript;}if(isYesV814_(t)||isNoV814_(t))window.confirmAgent850(t);};
+      r.onerror=function(){v814ConfirmRunning=false;};r.onend=function(){v814ConfirmRunning=false;};r.start();
+    }catch(e){v814ConfirmRunning=false;}
+  };
+  var timeoutBase850=confirmTimeoutV814_;
+  confirmTimeoutV814_=function(){document.getElementById('confirmControls850').style.display='none';timeoutBase850();};
+  var handleBase850=handleResult;
+  handleResult=function(r){
+    r=r||{};agentConfirmOp850='';
+    document.getElementById('confirmControls850').style.display='none';
+    if(typeof r.openOrderCount==='number')document.getElementById('orderCount').textContent=String(r.openOrderCount);
+    if(typeof r.activeTableCount==='number')document.getElementById('tableCount').textContent=String(r.activeTableCount);
+    document.getElementById('repeatReply850').disabled=!r.speak&&!r.message;
+    window.agentLastReply850=String(r.speak||r.message||'');
+    handleBase850(r);
+    if(r.clarify)setState('complete','確認が必要','まだ注文は登録していません');
+  };
+  window.quickQuery850=function(text){if(!busy&&!v814Confirm&&!agentCapture850)sendCommand(text,'TEXT');};
+  window.manualSend=function(){var input=document.getElementById('textInput'),t=String(input.value||'').trim();if(!t||busy||agentCapture850)return;input.value='';if(v814Confirm&&(isYesV814_(t)||isNoV814_(t))){window.confirmAgent850(t);return;}agentSpeechSerial850++;if(window.speechSynthesis)window.speechSynthesis.cancel();sendCommand(t,'TEXT');};
+  window.repeatReply850=function(){if(busy||agentCapture850||v814Confirm)return;stopWakeWordRecognition_();setState('processing','READING','注文内容を読み上げています');speak(window.agentLastReply850||'',function(){returnToStandby();});};
+  // Read reports in short utterances, including older Safari. Never reopen the mic mid-speech.
+  speak=function(text,done){
+    var serial=++agentSpeechSerial850;
+    if(!window.speechSynthesis||!text){if(done)done();return;}
+    window.speechSynthesis.cancel();
+    var parts=String(text).match(/[^。\n]{1,70}[。\n]?/g)||[String(text)],idx=0;
+    function next(){
+      if(serial!==agentSpeechSerial850)return;
+      if(idx>=parts.length){if(done)done();return;}
+      var u=new SpeechSynthesisUtterance(parts[idx++]),finished=false;
+      u.lang='ja-JP';u.rate=1.08;u.volume=1;
+      var guard=setTimeout(function(){window.speechSynthesis.cancel();finish();},Math.max(15000,u.text.length*500));
+      function finish(){if(finished)return;finished=true;clearTimeout(guard);setTimeout(next,70);}
+      u.onend=finish;u.onerror=finish;window.speechSynthesis.speak(u);
+    }
+    next();
+  };
+  document.addEventListener('visibilitychange',function(){
+    if(document.hidden){var c=agentCapture850;if(c){c.cancelled=true;window.finishVoice850();}stopWakeWordRecognition_();stopConfirmV814_();if(window.speechSynthesis)window.speechSynthesis.cancel();agentSpeechSerial850++;}
+    else if(!busy&&!v814Confirm&&state!=='offline')returnToStandby('画面復帰後はマイクから再開できます');
+  });
+
+})();
+</script>
 </body>
 </html>
