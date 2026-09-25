@@ -6,13 +6,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#02070b">
-  <title>JARVIS AI ORDER 8.5.0 | SERINA</title>
+  <title>JARVIS AI ORDER 8.5.1 | SERINA</title>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <script>
   (function(){
-    var version = "8.5.0";
+    var version = "8.5.1";
     var maxUrlAgeMs = 5 * 60 * 1000;
     var now = Date.now();
     var url;
@@ -418,7 +418,7 @@
     }
 
 
-    /* v8.5.0 futuristic initialization overlay */
+    /* v8.5.1 futuristic initialization overlay */
     .boot-overlay {
       position: fixed; inset: 0; z-index: 80; display: none;
       align-items: center; justify-content: center; padding: 24px;
@@ -587,7 +587,7 @@ html[data-compact=true] .scanlines{display:none}
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V8.5.0</div>
+      <div class="online-text" id="onlineText">BOOTING V8.5.1</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -638,7 +638,7 @@ html[data-compact=true] .scanlines{display:none}
 <div class="boot-overlay" id="bootOverlay" aria-live="polite">
   <div class="boot-shell">
     <div class="boot-brand">JARVIS</div>
-    <div class="boot-version">SERINA CORE // BOOT SEQUENCE 8.5.0</div>
+    <div class="boot-version">SERINA CORE // BOOT SEQUENCE 8.5.1</div>
     <div class="boot-reactor">
       <div class="boot-ring r1"></div><div class="boot-ring r2"></div><div class="boot-ring r3"></div>
       <div class="boot-core"></div>
@@ -764,7 +764,7 @@ html[data-compact=true] .scanlines{display:none}
     window.webkitSpeechRecognition ||
     null;
 
-  // v8.5.0 HIGH ACCURACY + iPhone SE AUDIO FIX:
+  // v8.5.1 HIGH ACCURACY + iPhone SE AUDIO FIX:
   // ウェイクワードだけWeb Speechを使用する。
   // 注文本文は必ずMediaRecorderで録音し、GAS経由のgpt-4o-transcribeで文字起こしする。
   // Web Speech / GPT Liveの注文文字列だけで登録しない。
@@ -823,7 +823,7 @@ html[data-compact=true] .scanlines{display:none}
   var NO_SPEECH_TIMEOUT_MS = 6000;
   var END_SILENCE_MS = 850;
 
-  var APP_VERSION = "8.5.0";
+  var APP_VERSION = "8.5.1";
   var bootActiveV850_ = false;
   var bootMicReadyV850_ = false;
   var bootCalibratedV850_ = false;
@@ -879,7 +879,7 @@ html[data-compact=true] .scanlines{display:none}
     updatePairingUi();
 
     if (getPairingToken()) {
-      document.getElementById("onlineText").textContent = "READY TO START V8.5.0";
+      document.getElementById("onlineText").textContent = "READY TO START V8.5.1";
     } else {
       document.getElementById("onlineText").textContent = "PAIRING NEEDED";
     }
@@ -2323,7 +2323,7 @@ html[data-compact=true] .scanlines{display:none}
       // bootstrapを一度取りこぼしてAPI OFFLINE表示になっていても、
       // 実際のAPI応答が成功したらオンライン表示へ復帰。
       document.getElementById("onlineText").textContent =
-        "SYSTEM ONLINE V8.5.0";
+        "SYSTEM ONLINE V8.5.1";
 
       setState(
         "complete",
@@ -2742,7 +2742,7 @@ html[data-compact=true] .scanlines{display:none}
         }
 
         document.getElementById("onlineText").textContent =
-          data.apiReady ? "AI TRANSCRIBE V8.5.0" : "API KEY NEEDED";
+          data.apiReady ? "AI TRANSCRIBE V8.5.1" : "API KEY NEEDED";
 
         if (SpeechRecognitionCtor) document.getElementById("clapLabel").textContent = "WAKE WORD: JARVIS";
 
@@ -3262,7 +3262,7 @@ html[data-compact=true] .scanlines{display:none}
     );
   }
 
-  // v8.5.0: すべての注文音声をgpt-4o-transcribeへ送る高精度経路。
+  // v8.5.1: すべての注文音声をgpt-4o-transcribeへ送る高精度経路。
   function sendAudioBlob(blob, mimeType) {
     busy = true;
     setState("processing", "AI TRANSCRIBING", "高精度AIで文字起こししています...");
@@ -3306,7 +3306,7 @@ html[data-compact=true] .scanlines{display:none}
     reader.readAsDataURL(blob);
   }
 
-  // v8.5.0: iPhone SafariでJSONPのload/errorが返らない場合も、
+  // v8.5.1: iPhone SafariでJSONPのload/errorが返らない場合も、
   // 1回ごとの監視タイマーと全体タイマーで必ず次へ進む。
   function pollRequestResult_(requestId, callback, timeoutMs) {
     var startedAt = Date.now();
@@ -3403,7 +3403,7 @@ html[data-compact=true] .scanlines{display:none}
     var transcript = String(result.normalizedTranscript || result.transcript || "").trim();
     showMessage(transcript ? ("認識：" + transcript + "\n\n" + message) : message);
 
-    document.getElementById("onlineText").textContent = "AI TRANSCRIBE V8.5.0";
+    document.getElementById("onlineText").textContent = "AI TRANSCRIBE V8.5.1";
     if (ok) setState("complete", "COMPLETE", "ORDER TURBO");
     else setState("error", "ERROR", result.resultUnknown ? "RESULT UNKNOWN" : "注文内容を確認してください");
 
@@ -3485,7 +3485,7 @@ html[data-compact=true] .scanlines{display:none}
 
 
   // =====================================================
-  // SERINA JARVIS v8.5.0 HIGH ACCURACY AI ORDER
+  // SERINA JARVIS v8.5.1 HIGH ACCURACY AI ORDER
   // - Wake word: local Web Speech
   // - Command body: MediaRecorder -> GAS -> gpt-4o-transcribe
   // - Menu / VoiceAliases / Tables: AI transcription context + deterministic validation
@@ -3531,7 +3531,7 @@ html[data-compact=true] .scanlines{display:none}
     var tc = liveIndexV822_ && liveIndexV822_.tables ? liveIndexV822_.tables.length : 0;
     document.getElementById("clapLabel").textContent = "PRELOAD " + pc + " MENU / " + tc + " TABLES";
 
-    // v8.5.0: GPT Liveは起動しない。注文本文は録音後に高精度AI文字起こしへ送る。
+    // v8.5.1: GPT Liveは起動しない。注文本文は録音後に高精度AI文字起こしへ送る。
   }
 
   function buildLiveContextV82_() {
@@ -3999,7 +3999,7 @@ html[data-compact=true] .scanlines{display:none}
     if (liveReadyV82_) return;
     liveReadyV82_ = true;
     liveConnectingV82_ = false;
-    document.getElementById("onlineText").textContent = "LIVE READY V8.5.0";
+    document.getElementById("onlineText").textContent = "LIVE READY V8.5.1";
     document.getElementById("clapLabel").textContent = "WAKE WORD + GPT LIVE";
     sendLiveEventV82_({
       type: "session.instructions.append",
@@ -4056,7 +4056,7 @@ html[data-compact=true] .scanlines{display:none}
     if (!sourceTrack) return;
 
     liveConnectingV82_ = true;
-    document.getElementById("onlineText").textContent = "LIVE WARMING V8.5.0";
+    document.getElementById("onlineText").textContent = "LIVE WARMING V8.5.1";
 
     try {
       var pc = new RTCPeerConnection();
@@ -4099,7 +4099,7 @@ html[data-compact=true] .scanlines{display:none}
                 if (livePcV82_ !== pc) return;
                 if (!result || result.success !== true || !result.answerSdp) {
                   closeLiveV82_(true);
-                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V8.5.0";
+                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V8.5.1";
                   return;
                 }
                 pc.setRemoteDescription({type:"answer", sdp:String(result.answerSdp)}).catch(function(){
@@ -4249,7 +4249,7 @@ html[data-compact=true] .scanlines{display:none}
     return true;
   }
 
-  // v8.5.0: Wake word stays on Web Speech, but every order body is recorded
+  // v8.5.1: Wake word stays on Web Speech, but every order body is recorded
   // and sent to gpt-4o-transcribe. GPT Live/Web Speech text never registers an order.
   var beginFastVoiceInputBaseV82_ = beginFastVoiceInput_;
   beginFastVoiceInput_ = function() {
@@ -4397,8 +4397,8 @@ html[data-compact=true] .scanlines{display:none}
   var agentCoreReady850=false;
   var originalApiRequest850=apiRequest;
   apiRequest=function(action,data,callback,timeout){
-    if(action==='bootstrap'){return originalApiRequest850(action,data,function(r){agentCoreReady850=!!(r&&String(r.version||r.coreVersion).indexOf('V8_5_0')>=0);callback(r);if(!agentCoreReady850){document.getElementById('onlineText').textContent='GAS UPDATE REQUIRED';showMessage('GAS側をv8.5.0へ更新・再デプロイしてください。');}},timeout);}
-    if(!agentCoreReady850&&/^(audio_order|order_fast|order_confirm)$/.test(action)){callback({success:false,message:'GAS側のv8.5.0を確認できません。GASを更新してからSYSTEM STARTで起動し直してください。',noMutation:true});return;}
+    if(action==='bootstrap'){return originalApiRequest850(action,data,function(r){agentCoreReady850=!!(r&&String(r.version||r.coreVersion).indexOf('V8_5_1')>=0);callback(r);if(!agentCoreReady850){document.getElementById('onlineText').textContent='GAS UPDATE REQUIRED';showMessage('GAS側をv8.5.1へ更新・再デプロイしてください。');}},timeout);}
+    if(!agentCoreReady850&&/^(audio_order|order_fast|order_confirm)$/.test(action)){callback({success:false,message:'GAS側のv8.5.1を確認できません。GASを更新してからSYSTEM STARTで起動し直してください。',noMutation:true});return;}
     if(action==='audio_order'&&agentConfirmOp850){data.confirmationOperationId=agentConfirmOp850;agentConfirmOp850='';}
     return originalApiRequest850(action,data,callback,timeout);
   };
