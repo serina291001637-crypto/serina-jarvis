@@ -6,13 +6,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#02070b">
-  <title>JARVIS AI ORDER 8.5.1 | SERINA</title>
+  <title>JARVIS AI ORDER 8.5.2 | SERINA</title>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <script>
   (function(){
-    var version = "8.5.1";
+    var version = "8.5.2";
     var maxUrlAgeMs = 5 * 60 * 1000;
     var now = Date.now();
     var url;
@@ -418,7 +418,7 @@
     }
 
 
-    /* v8.5.1 futuristic initialization overlay */
+    /* v8.5.2 futuristic initialization overlay */
     .boot-overlay {
       position: fixed; inset: 0; z-index: 80; display: none;
       align-items: center; justify-content: center; padding: 24px;
@@ -587,7 +587,7 @@ html[data-compact=true] .scanlines{display:none}
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V8.5.1</div>
+      <div class="online-text" id="onlineText">BOOTING V8.5.2</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -623,7 +623,7 @@ html[data-compact=true] .scanlines{display:none}
       <span id="clapLabel">WAKE WORD: JARVIS</span>
     </div>
 
-    <div class="agent-controls" id="captureControls850" style="display:none"><span id="recordStatus850" role="status">録音中</span><button type="button" onclick="finishVoice850()">話し終わったら送信</button><button type="button" onclick="cancelVoice850()">録音取消</button></div>
+    <div class="agent-controls" id="captureControls850" style="display:none"><span id="recordStatus850" role="status">録音中</span><button type="button" onclick="cancelVoice850()">録音取消</button></div>
 <div class="agent-controls" id="confirmControls850" style="display:none"><button type="button" onclick="confirmAgent850('はい')">はい・確定</button><button type="button" onclick="confirmAgent850('いいえ')">いいえ・取消</button></div>
 <div class="agent-controls"><button type="button" onclick="quickQuery850('全体の注文を確認')">全卓の未提供</button><button type="button" onclick="quickQuery850('重複注文を確認')">複数注文</button><button id="repeatReply850" type="button" disabled onclick="repeatReply850()">再読上げ</button></div>
 <div class="input-row">
@@ -638,7 +638,7 @@ html[data-compact=true] .scanlines{display:none}
 <div class="boot-overlay" id="bootOverlay" aria-live="polite">
   <div class="boot-shell">
     <div class="boot-brand">JARVIS</div>
-    <div class="boot-version">SERINA CORE // BOOT SEQUENCE 8.5.1</div>
+    <div class="boot-version">SERINA CORE // BOOT SEQUENCE 8.5.2</div>
     <div class="boot-reactor">
       <div class="boot-ring r1"></div><div class="boot-ring r2"></div><div class="boot-ring r3"></div>
       <div class="boot-core"></div>
@@ -764,7 +764,7 @@ html[data-compact=true] .scanlines{display:none}
     window.webkitSpeechRecognition ||
     null;
 
-  // v8.5.1 HIGH ACCURACY + iPhone SE AUDIO FIX:
+  // v8.5.2 HIGH ACCURACY + iPhone SE AUDIO FIX:
   // ウェイクワードだけWeb Speechを使用する。
   // 注文本文は必ずMediaRecorderで録音し、GAS経由のgpt-4o-transcribeで文字起こしする。
   // Web Speech / GPT Liveの注文文字列だけで登録しない。
@@ -823,7 +823,7 @@ html[data-compact=true] .scanlines{display:none}
   var NO_SPEECH_TIMEOUT_MS = 6000;
   var END_SILENCE_MS = 850;
 
-  var APP_VERSION = "8.5.1";
+  var APP_VERSION = "8.5.2";
   var bootActiveV850_ = false;
   var bootMicReadyV850_ = false;
   var bootCalibratedV850_ = false;
@@ -879,7 +879,7 @@ html[data-compact=true] .scanlines{display:none}
     updatePairingUi();
 
     if (getPairingToken()) {
-      document.getElementById("onlineText").textContent = "READY TO START V8.5.1";
+      document.getElementById("onlineText").textContent = "READY TO START V8.5.2";
     } else {
       document.getElementById("onlineText").textContent = "PAIRING NEEDED";
     }
@@ -2323,7 +2323,7 @@ html[data-compact=true] .scanlines{display:none}
       // bootstrapを一度取りこぼしてAPI OFFLINE表示になっていても、
       // 実際のAPI応答が成功したらオンライン表示へ復帰。
       document.getElementById("onlineText").textContent =
-        "SYSTEM ONLINE V8.5.1";
+        "SYSTEM ONLINE V8.5.2";
 
       setState(
         "complete",
@@ -2742,7 +2742,7 @@ html[data-compact=true] .scanlines{display:none}
         }
 
         document.getElementById("onlineText").textContent =
-          data.apiReady ? "AI TRANSCRIBE V8.5.1" : "API KEY NEEDED";
+          data.apiReady ? "AI TRANSCRIBE V8.5.2" : "API KEY NEEDED";
 
         if (SpeechRecognitionCtor) document.getElementById("clapLabel").textContent = "WAKE WORD: JARVIS";
 
@@ -3262,13 +3262,20 @@ html[data-compact=true] .scanlines{display:none}
     );
   }
 
-  // v8.5.1: すべての注文音声をgpt-4o-transcribeへ送る高精度経路。
+  // v8.5.2: すべての注文音声をgpt-4o-transcribeへ送る高精度経路。
   function sendAudioBlob(blob, mimeType) {
     busy = true;
     setState("processing", "AI TRANSCRIBING", "高精度AIで文字起こししています...");
     showMessage("録音完了\nAI文字起こし・Tables・Menu照合中...");
     var reader = new FileReader();
-    reader.onloadend = function() {
+    var settled=false;
+    var readWatch=setTimeout(function(){readFailure852('AUDIO_READ_TIMEOUT');try{reader.abort();}catch(ignore){}},5000);
+    function readFailure852(code){
+      if(settled)return;settled=true;clearTimeout(readWatch);busy=false;
+      handleResult({success:false,noMutation:true,errorCode:code,message:'録音ファイルを読み込めませんでした。Safariのマイクから再度お試しください。 ['+code+']'});
+    }
+    reader.onload = function() {
+      if(settled)return;settled=true;clearTimeout(readWatch);
       var dataUrl = String(reader.result || "");
       var comma = dataUrl.indexOf(",");
       var base64 = comma >= 0 ? dataUrl.substring(comma + 1) : "";
@@ -3299,14 +3306,12 @@ html[data-compact=true] .scanlines{display:none}
         60000
       );
     };
-    reader.onerror = function() {
-      busy = false;
-      handleResult({ success:false, message:"音声データの読み込みに失敗しました。" });
-    };
-    reader.readAsDataURL(blob);
+    reader.onerror = function(){readFailure852('AUDIO_READ_ERROR');};
+    reader.onabort = function(){readFailure852('AUDIO_READ_ABORT');};
+    try{reader.readAsDataURL(blob);}catch(e){readFailure852('AUDIO_READ_THROW');}
   }
 
-  // v8.5.1: iPhone SafariでJSONPのload/errorが返らない場合も、
+  // v8.5.2: iPhone SafariでJSONPのload/errorが返らない場合も、
   // 1回ごとの監視タイマーと全体タイマーで必ず次へ進む。
   function pollRequestResult_(requestId, callback, timeoutMs) {
     var startedAt = Date.now();
@@ -3403,7 +3408,7 @@ html[data-compact=true] .scanlines{display:none}
     var transcript = String(result.normalizedTranscript || result.transcript || "").trim();
     showMessage(transcript ? ("認識：" + transcript + "\n\n" + message) : message);
 
-    document.getElementById("onlineText").textContent = "AI TRANSCRIBE V8.5.1";
+    document.getElementById("onlineText").textContent = "AI TRANSCRIBE V8.5.2";
     if (ok) setState("complete", "COMPLETE", "ORDER TURBO");
     else setState("error", "ERROR", result.resultUnknown ? "RESULT UNKNOWN" : "注文内容を確認してください");
 
@@ -3485,7 +3490,7 @@ html[data-compact=true] .scanlines{display:none}
 
 
   // =====================================================
-  // SERINA JARVIS v8.5.1 HIGH ACCURACY AI ORDER
+  // SERINA JARVIS v8.5.2 HIGH ACCURACY AI ORDER
   // - Wake word: local Web Speech
   // - Command body: MediaRecorder -> GAS -> gpt-4o-transcribe
   // - Menu / VoiceAliases / Tables: AI transcription context + deterministic validation
@@ -3531,7 +3536,7 @@ html[data-compact=true] .scanlines{display:none}
     var tc = liveIndexV822_ && liveIndexV822_.tables ? liveIndexV822_.tables.length : 0;
     document.getElementById("clapLabel").textContent = "PRELOAD " + pc + " MENU / " + tc + " TABLES";
 
-    // v8.5.1: GPT Liveは起動しない。注文本文は録音後に高精度AI文字起こしへ送る。
+    // v8.5.2: GPT Liveは起動しない。注文本文は録音後に高精度AI文字起こしへ送る。
   }
 
   function buildLiveContextV82_() {
@@ -3999,7 +4004,7 @@ html[data-compact=true] .scanlines{display:none}
     if (liveReadyV82_) return;
     liveReadyV82_ = true;
     liveConnectingV82_ = false;
-    document.getElementById("onlineText").textContent = "LIVE READY V8.5.1";
+    document.getElementById("onlineText").textContent = "LIVE READY V8.5.2";
     document.getElementById("clapLabel").textContent = "WAKE WORD + GPT LIVE";
     sendLiveEventV82_({
       type: "session.instructions.append",
@@ -4056,7 +4061,7 @@ html[data-compact=true] .scanlines{display:none}
     if (!sourceTrack) return;
 
     liveConnectingV82_ = true;
-    document.getElementById("onlineText").textContent = "LIVE WARMING V8.5.1";
+    document.getElementById("onlineText").textContent = "LIVE WARMING V8.5.2";
 
     try {
       var pc = new RTCPeerConnection();
@@ -4099,7 +4104,7 @@ html[data-compact=true] .scanlines{display:none}
                 if (livePcV82_ !== pc) return;
                 if (!result || result.success !== true || !result.answerSdp) {
                   closeLiveV82_(true);
-                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V8.5.1";
+                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V8.5.2";
                   return;
                 }
                 pc.setRemoteDescription({type:"answer", sdp:String(result.answerSdp)}).catch(function(){
@@ -4249,7 +4254,7 @@ html[data-compact=true] .scanlines{display:none}
     return true;
   }
 
-  // v8.5.1: Wake word stays on Web Speech, but every order body is recorded
+  // v8.5.2: Wake word stays on Web Speech, but every order body is recorded
   // and sent to gpt-4o-transcribe. GPT Live/Web Speech text never registers an order.
   var beginFastVoiceInputBaseV82_ = beginFastVoiceInput_;
   beginFastVoiceInput_ = function() {
@@ -4297,83 +4302,150 @@ html[data-compact=true] .scanlines{display:none}
   window.addEventListener('orientationchange',viewport850);
   if(window.visualViewport) window.visualViewport.addEventListener('resize',viewport850);
   viewport850();
-  function captureUi850(on) {
-    document.getElementById('captureControls850').style.display=on?'flex':'none';
+  // v8.5.2: PCM-first on iOS, VAD from the recorded samples, bounded preparation.
+  var agentMonitorSource852=null;
+  function isIos852(){return /iPad|iPhone|iPod/.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);}
+  function captureUi850(on){document.getElementById('captureControls850').style.display=on?'flex':'none';}
+  function cleanCapture850(c){
+    clearInterval(c.timer);clearTimeout(c.stopWatch);clearTimeout(c.prepareWatch);clearTimeout(c.limitWatch);
+    if(c.node){c.node.onaudioprocess=null;try{c.node.disconnect();}catch(ignore){}}
+    if(c.source)try{c.source.disconnect();}catch(ignore){}
+    if(c.gain)try{c.gain.disconnect();}catch(ignore){}
+    if(c.recorder){c.recorder.onstop=null;c.recorder.ondataavailable=null;c.recorder.onerror=null;try{if(c.recorder.state!=='inactive')c.recorder.stop();}catch(ignore){}}
+    if(agentCapture850===c){agentCapture850=null;captureUi850(false);}
   }
-  function cleanCapture850(c) {
-    clearInterval(c.timer);clearTimeout(c.stopWatch);
-    if(c.node){c.node.onaudioprocess=null;try{c.node.disconnect();c.source.disconnect();c.gain.disconnect();}catch(ignore){}}
-    captureUi850(false);
-    if(agentCapture850===c)agentCapture850=null;
+  function failCapture852(c,code,message){
+    if(c.done)return;c.done=true;cleanCapture850(c);commandModeActive=false;busy=false;agentConfirmOp850='';
+    if(!c.cancelled)handleResult({success:false,noMutation:true,errorCode:code,message:message+' ['+code+']'});
   }
-  function wav850(chunks,rate) {
+  function wav850(chunks,rate){
     var count=0;chunks.forEach(function(a){count+=a.length;});
     var samples=new Float32Array(count),offset=0;
     chunks.forEach(function(a){samples.set(a,offset);offset+=a.length;});
-    // Downsample PCM for old Safari: 16 kHz mono / 16 bit, about 32 KB per second.
     var target=Math.min(16000,rate),ratio=rate/target,n=Math.floor(count/ratio);
     var buffer=new ArrayBuffer(44+n*2),v=new DataView(buffer);
     function str(at,s){for(var i=0;i<s.length;i++)v.setUint8(at+i,s.charCodeAt(i));}
     str(0,'RIFF');v.setUint32(4,36+n*2,true);str(8,'WAVE');str(12,'fmt ');v.setUint32(16,16,true);
     v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,target,true);v.setUint32(28,target*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);str(36,'data');v.setUint32(40,n*2,true);
-    for(var k=0;k<n;k++) {var a=Math.floor(k*ratio),b=Math.max(a+1,Math.floor((k+1)*ratio)),sum=0;for(var j=a;j<b&&j<count;j++)sum+=samples[j];var x=Math.max(-1,Math.min(1,sum/(b-a)));v.setInt16(44+k*2,x<0?x*32768:x*32767,true);}
+    for(var k=0;k<n;k++){var a=Math.floor(k*ratio),b=Math.min(count,Math.max(a+1,Math.floor((k+1)*ratio))),sum=0;for(var j=a;j<b;j++)sum+=samples[j];var x=Math.max(-1,Math.min(1,sum/(b-a)));v.setInt16(44+k*2,x<0?x*32768:x*32767,true);}
     return new Blob([buffer],{type:'audio/wav'});
   }
-  function finishCapture850(c,blob) {
-    if(c.done)return;c.done=true;cleanCapture850(c);
-    if(c.cancelled)return;
-    commandModeActive=false;
-    if(!blob||blob.size<256||Date.now()-c.started<350){busy=false;handleResult({success:false,message:'録音データが取れませんでした。マイクを押して再度お話しください。'});return;}
-    sendAudioBlob(blob,blob.type);
+  function recordLevel852(c,rms,ms,now){
+    // Hysteresis; estimate background only from quiet frames, never from active speech.
+    var threshold=Math.max(.008,Math.min(.035,c.floor*2.5));
+    if(rms>threshold){c.voiceMs+=ms;c.lastVoice=now;c.silenceMs=0;}
+    else {c.silenceMs+=ms;if(rms<threshold*.7)c.floor=.98*c.floor+.02*rms;}
+    if(c.voiceMs>=160)c.heard=true;
   }
-  function pcmCapture850(c) {
-    if(!audioContext||!audioContext.createScriptProcessor)throw new Error('録音API非対応');
-    c.pcm=[];c.source=audioContext.createMediaStreamSource(micStream);
-    c.node=audioContext.createScriptProcessor(4096,1,1);c.gain=audioContext.createGain();c.gain.gain.value=0;
-    c.node.onaudioprocess=function(e){if(c.stopping||c.done)return;var a=e.inputBuffer.getChannelData(0);c.pcm.push(new Float32Array(a));};
+  function pcmCapture850(c){
+    if(!audioContext||!audioContext.createScriptProcessor)throw Error('PCM_UNSUPPORTED');
+    c.rate=audioContext.sampleRate;c.pcm=[];c.source=audioContext.createMediaStreamSource(micStream);
+    c.node=audioContext.createScriptProcessor(2048,1,1);c.gain=audioContext.createGain();c.gain.gain.value=0;
+    c.node.onaudioprocess=function(e){
+      if(c.stopping||c.done)return;
+      var a=e.inputBuffer.getChannelData(0),sum=0;
+      for(var i=0;i<a.length;i++)sum+=a[i]*a[i];
+      c.frames+=a.length;c.lastFrame=Date.now();
+      c.pcm.push(new Float32Array(a));
+      recordLevel852(c,Math.sqrt(sum/a.length),1000*a.length/c.rate,c.lastFrame);
+      if(c.heard&&c.silenceMs>=1000)window.finishVoice850();
+    };
     c.source.connect(c.node);c.node.connect(c.gain);c.gain.connect(audioContext.destination);c.mode='WAV';
   }
-  function startCapture850() {
+  function resumeAudio852(){
+    if(!audioContext)return Promise.reject(Error('AUDIO_CONTEXT_MISSING'));
+    if(audioContext.state==='running')return Promise.resolve();
+    return Promise.resolve(audioContext.resume()).then(function(){if(audioContext.state!=='running')throw Error('AUDIO_CONTEXT_'+audioContext.state);});
+  }
+  function refreshMic852(c){
+    if(c.done)return Promise.resolve();
+    var tracks=micStream&&micStream.getAudioTracks?micStream.getAudioTracks():[];
+    var stale=!tracks.length||tracks.some(function(t){return t.readyState==='ended'||t.muted;});
+    if(!isIos852()&&!stale)return Promise.resolve();
+    return navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false}).then(function(stream){
+      if(c.done){stream.getTracks().forEach(function(t){t.stop();});return;}
+      // Reconnect the standby meters to the fresh stream as well as the recorder.
+      var old=micStream;micStream=stream;
+      if(agentMonitorSource852)try{agentMonitorSource852.disconnect();}catch(ignore){}
+      agentMonitorSource852=audioContext.createMediaStreamSource(stream);
+      if(analyser)agentMonitorSource852.connect(analyser);
+      if(clapHighpass)agentMonitorSource852.connect(clapHighpass);
+      if(old&&old!==stream)old.getTracks().forEach(function(t){t.stop();});
+    });
+  }
+  function finishCapture850(c,blob){
+    if(c.done)return;
+    if(!blob||blob.size<256){failCapture852(c,'AUDIO_EMPTY','マイクから録音データを取得できませんでした。Safariのマイクボタンから再度お試しください。');return;}
+    c.done=true;cleanCapture850(c);commandModeActive=false;
+    if(c.cancelled)return;
+    sendAudioBlob(blob,blob.type);
+  }
+  function beginCapture852(c){
+    if(c.done)return;clearTimeout(c.prepareWatch);
+    c.started=Date.now();c.lastTick=c.started;
+    var ios=isIos852();
+    try{pcmCapture850(c);}catch(e){
+      if(c.source)try{c.source.disconnect();}catch(ignore){}
+      if(c.node)try{c.node.disconnect();}catch(ignore){}
+      c.node=null;c.source=null;c.pcm=null;
+      if(ios)throw e;
+    }
+    // iOS always sends PCM WAV, even when MediaRecorder exists but returns empty MP4.
+    if(!ios&&window.MediaRecorder){
+      try{
+        var mime=chooseRecordingMimeType();c.recorder=mime?new MediaRecorder(micStream,{mimeType:mime}):new MediaRecorder(micStream);
+        c.recorder.ondataavailable=function(e){if(!c.done&&e.data&&e.data.size)c.chunks.push(e.data);};
+        c.recorder.onstop=function(){
+          var blob=new Blob(c.chunks,{type:c.recorder.mimeType||mime||'audio/webm'});
+          finishCapture850(c,blob.size>=256?blob:(c.frames?wav850(c.pcm,c.rate):null));
+        };
+        c.recorder.onerror=function(){if(c.done)return;if(c.frames){c.stopping=true;finishCapture850(c,wav850(c.pcm,c.rate));}else failCapture852(c,'RECORDER_ERROR','録音を開始できませんでした。');};
+        c.recorder.start();c.mode='AUTO';
+      }catch(e){if(c.recorder){c.recorder.onstop=null;c.recorder.onerror=null;}c.recorder=null;if(!c.node)throw e;}
+    }
+    if(!c.node&&!c.recorder)throw Error('RECORDING_UNSUPPORTED');
+    setState('listening','LISTENING','話し終わると自動送信します');showMessage('');captureUi850(true);
+    c.timer=setInterval(function(){
+      if(c.done||c.stopping)return;
+      var now=Date.now(),elapsed=now-c.started,dt=Math.min(150,now-c.lastTick);c.lastTick=now;
+      if(c.node){
+        if((!c.frames&&elapsed>2500)||(c.frames&&now-c.lastFrame>2500)){
+          failCapture852(c,'AUDIO_NO_FRAMES','音声入力が停止しています。Safariを前面にしてマイクボタンを押してください。');return;
+        }
+      }else {try{recordLevel852(c,readAudioMetrics().rms||0,dt,now);}catch(ignore){}}
+      document.getElementById('recordStatus850').textContent=(elapsed/1000).toFixed(1)+'秒・'+(c.heard?'音声検出／話し終わると自動送信':'音声を待っています');
+      if(c.heard&&c.silenceMs>=1000)window.finishVoice850();
+      else if(!c.heard&&elapsed>=8000)failCapture852(c,'NO_SPEECH','声を確認できませんでした。マイクに近づいてもう一度お話しください。');
+    },100);
+    c.limitWatch=setTimeout(function(){if(!c.done&&!c.stopping){if(c.heard)window.finishVoice850();else failCapture852(c,'NO_SPEECH','声を確認できませんでした。');}},20000);
+  }
+  function startCapture850(){
     if(agentCapture850||busy)return;
     if(!micStream){handleResult({success:false,message:'SYSTEM STARTでマイクを起動してください。'});return;}
     if(commandDeadlineTimer){clearTimeout(commandDeadlineTimer);commandDeadlineTimer=null;}
-    commandModeActive=false;stopWakeWordRecognition_();
-    if(window.speechSynthesis)window.speechSynthesis.cancel();
-    if(audioContext&&audioContext.state==='suspended')audioContext.resume().catch(function(){});
-    var c={started:Date.now(),lastVoice:0,voiceMs:0,lastTick:Date.now(),chunks:[],mode:'MediaRecorder',done:false};agentCapture850=c;
-    try {
-      if(!window.MediaRecorder)pcmCapture850(c);
-      else {
-        var mime=chooseRecordingMimeType();
-        try {c.recorder=mime?new MediaRecorder(micStream,{mimeType:mime,audioBitsPerSecond:64000}):new MediaRecorder(micStream);}
-        catch(nativeError){pcmCapture850(c);}
-        if(c.recorder){
-          c.recorder.ondataavailable=function(e){if(e.data&&e.data.size)c.chunks.push(e.data);};
-          c.recorder.onstop=function(){finishCapture850(c,new Blob(c.chunks,{type:c.recorder.mimeType||mime||'audio/mp4'}));};
-          c.recorder.onerror=function(){if(c.done)return;c.cancelled=true;try{c.recorder.stop();}catch(ignore){}cleanCapture850(c);busy=false;handleResult({success:false,message:'録音に失敗しました。Safariで開き直してマイクを押してください。'});};
-          try{c.recorder.start(250);}catch(startError){c.recorder=null;pcmCapture850(c);}
-        }
-      }
-      setState('listening','LISTENING','話し終わったら「送信」も使えます');showMessage('');captureUi850(true);
-      c.timer=setInterval(function(){
-        if(c.done||c.stopping)return;
-        var now=Date.now(),elapsed=now-c.started,dt=Math.min(150,now-c.lastTick);c.lastTick=now;
-        var rms=0;try{rms=readAudioMetrics().rms||0;}catch(ignore){}
-        var threshold=Math.max(0.012,Math.min(0.06,(noiseFloor||0.008)*1.8));
-        if(rms>threshold){c.voiceMs+=dt;c.lastVoice=now;}
-        var heard=c.voiceMs>=180;
-        document.getElementById('recordStatus850').textContent=c.mode+' '+(elapsed/1000).toFixed(1)+'秒'+(heard?'・音声検出':'・録音中');
-        // Independent timer remains active even when the analyser fails or gives zeroes.
-        if(elapsed>=20000||(heard&&now-c.lastVoice>=1100&&elapsed>=1000)||(!heard&&elapsed>=8000))window.finishVoice850();
-      },100);
-    }catch(e){cleanCapture850(c);busy=false;handleResult({success:false,message:'この端末で録音を開始できません。Safariとマイク権限を確認してください。'});}
+    var c={started:Date.now(),lastVoice:0,voiceMs:0,silenceMs:0,floor:.003,frames:0,lastFrame:0,chunks:[],done:false,stopping:false};
+    agentCapture850=c;commandModeActive=false;
+    // Trigger resume synchronously while a microphone tap still has user activation.
+    if(audioContext&&audioContext.state!=='running')try{var p=audioContext.resume();if(p&&p.catch)p.catch(function(){});}catch(ignore){}
+    if(wakeRecognition)try{wakeRecognition.onresult=null;wakeRecognition.abort();}catch(ignore){}
+    stopWakeWordRecognition_();if(window.speechSynthesis)window.speechSynthesis.cancel();
+    setState('listening','PREPARING','マイクを準備しています');captureUi850(true);
+    document.getElementById('recordStatus850').textContent='マイクを準備しています';
+    c.prepareWatch=setTimeout(function(){failCapture852(c,'AUDIO_PREPARE_TIMEOUT','マイクを再開できませんでした。Safariでマイクボタンを押してください。');},6000);
+    // Reacquire the iOS stream after requesting release of SpeechRecognition.
+    Promise.resolve().then(function(){return refreshMic852(c);}).then(function(){if(!c.done)return resumeAudio852();}).then(function(){if(!c.done)beginCapture852(c);}).catch(function(e){failCapture852(c,'AUDIO_PREPARE_FAILED','マイクを開始できませんでした。Safariのマイク許可を確認し、マイクボタンを押してください。');});
   }
   window.finishVoice850=function(){
-    var c=agentCapture850;if(!c||c.stopping||c.done)return;c.stopping=true;clearInterval(c.timer);
-    if(c.recorder){c.stopWatch=setTimeout(function(){if(!c.done){c.done=true;cleanCapture850(c);busy=false;handleResult({success:false,message:'録音の終了応答がありません。再度マイクを押してください。'});}},4000);try{c.recorder.stop();}catch(e){finishCapture850(c,null);}}
-    else finishCapture850(c,wav850(c.pcm,audioContext.sampleRate));
+    var c=agentCapture850;if(!c||c.stopping||c.done)return;
+    if(!c.heard){failCapture852(c,'NO_SPEECH','声を確認できませんでした。もう一度お話しください。');return;}
+    c.stopping=true;clearInterval(c.timer);clearTimeout(c.limitWatch);
+    if(c.recorder){
+      c.stopWatch=setTimeout(function(){if(!c.done){if(c.frames)finishCapture850(c,wav850(c.pcm,c.rate));else failCapture852(c,'RECORDER_STOP_TIMEOUT','録音を終了できませんでした。');}},3000);
+      try{c.recorder.stop();}catch(e){finishCapture850(c,c.frames?wav850(c.pcm,c.rate):null);}
+    }else finishCapture850(c,c.frames?wav850(c.pcm,c.rate):null);
   };
-  window.cancelVoice850=function(){var c=agentCapture850;if(!c)return;c.cancelled=true;window.finishVoice850();agentConfirmOp850='';busy=false;returnToStandby('録音を取り消しました');};
+  window.cancelVoice850=function(){var c=agentCapture850;if(!c)return;c.cancelled=true;c.done=true;cleanCapture850(c);agentConfirmOp850='';busy=false;returnToStandby('録音を取り消しました');};
+
   beginVoiceRecording=startCapture850;
   beginFastVoiceInput_=startCapture850;
   beginFastVoiceInputBaseV82_=startCapture850;
@@ -4397,8 +4469,8 @@ html[data-compact=true] .scanlines{display:none}
   var agentCoreReady850=false;
   var originalApiRequest850=apiRequest;
   apiRequest=function(action,data,callback,timeout){
-    if(action==='bootstrap'){return originalApiRequest850(action,data,function(r){agentCoreReady850=!!(r&&String(r.version||r.coreVersion).indexOf('V8_5_1')>=0);callback(r);if(!agentCoreReady850){document.getElementById('onlineText').textContent='GAS UPDATE REQUIRED';showMessage('GAS側をv8.5.1へ更新・再デプロイしてください。');}},timeout);}
-    if(!agentCoreReady850&&/^(audio_order|order_fast|order_confirm)$/.test(action)){callback({success:false,message:'GAS側のv8.5.1を確認できません。GASを更新してからSYSTEM STARTで起動し直してください。',noMutation:true});return;}
+    if(action==='bootstrap'){return originalApiRequest850(action,data,function(r){agentCoreReady850=!!(r&&String(r.version||r.coreVersion).match(/V8_5_[12](?:_|$)/));callback(r);if(!agentCoreReady850){document.getElementById('onlineText').textContent='GAS UPDATE REQUIRED';showMessage('GAS側をv8.5.1以降へ更新・再デプロイしてください。');}},timeout);}
+    if(!agentCoreReady850&&/^(audio_order|order_fast|order_confirm)$/.test(action)){callback({success:false,message:'GAS側のv8.5.1以降を確認できません。GASを更新してからSYSTEM STARTで起動し直してください。',noMutation:true});return;}
     if(action==='audio_order'&&agentConfirmOp850){data.confirmationOperationId=agentConfirmOp850;agentConfirmOp850='';}
     return originalApiRequest850(action,data,callback,timeout);
   };
