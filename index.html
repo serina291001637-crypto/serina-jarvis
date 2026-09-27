@@ -6,13 +6,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#02070b">
-  <title>JARVIS AI ORDER 8.5.5 | SERINA</title>
+  <title>JARVIS AI ORDER 8.5.6 | SERINA</title>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <script>
   (function(){
-    var version = "8.5.5";
+    var version = "8.5.6";
     var maxUrlAgeMs = 5 * 60 * 1000;
     var now = Date.now();
     var url;
@@ -418,7 +418,7 @@
     }
 
 
-    /* v8.5.5 futuristic initialization overlay */
+    /* v8.5.6 futuristic initialization overlay */
     .boot-overlay {
       position: fixed; inset: 0; z-index: 80; display: none;
       align-items: center; justify-content: center; padding: 24px;
@@ -587,7 +587,7 @@ html[data-compact=true] .scanlines{display:none}
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V8.5.5</div>
+      <div class="online-text" id="onlineText">BOOTING V8.5.6</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -638,7 +638,7 @@ html[data-compact=true] .scanlines{display:none}
 <div class="boot-overlay" id="bootOverlay" aria-live="polite">
   <div class="boot-shell">
     <div class="boot-brand">JARVIS</div>
-    <div class="boot-version">SERINA CORE // BOOT SEQUENCE 8.5.5</div>
+    <div class="boot-version">SERINA CORE // BOOT SEQUENCE 8.5.6</div>
     <div class="boot-reactor">
       <div class="boot-ring r1"></div><div class="boot-ring r2"></div><div class="boot-ring r3"></div>
       <div class="boot-core"></div>
@@ -766,7 +766,7 @@ html[data-compact=true] .scanlines{display:none}
     window.webkitSpeechRecognition ||
     null;
 
-  // v8.5.5 HIGH ACCURACY + iPhone SE AUDIO FIX:
+  // v8.5.6 HIGH ACCURACY + iPhone SE AUDIO FIX:
   // ウェイクワードだけWeb Speechを使用する。
   // 注文本文は必ずMediaRecorderで録音し、GAS経由のgpt-4o-transcribeで文字起こしする。
   // Web Speech / GPT Liveの注文文字列だけで登録しない。
@@ -825,7 +825,7 @@ html[data-compact=true] .scanlines{display:none}
   var NO_SPEECH_TIMEOUT_MS = 6000;
   var END_SILENCE_MS = 850;
 
-  var APP_VERSION = "8.5.5";
+  var APP_VERSION = "8.5.6";
   var bootActiveV850_ = false;
   var bootMicReadyV850_ = false;
   var bootCalibratedV850_ = false;
@@ -881,7 +881,7 @@ html[data-compact=true] .scanlines{display:none}
     updatePairingUi();
 
     if (getPairingToken()) {
-      document.getElementById("onlineText").textContent = "READY TO START V8.5.5";
+      document.getElementById("onlineText").textContent = "READY TO START V8.5.6";
     } else {
       document.getElementById("onlineText").textContent = "PAIRING NEEDED";
     }
@@ -2312,7 +2312,7 @@ html[data-compact=true] .scanlines{display:none}
       // bootstrapを一度取りこぼしてAPI OFFLINE表示になっていても、
       // 実際のAPI応答が成功したらオンライン表示へ復帰。
       document.getElementById("onlineText").textContent =
-        "SYSTEM ONLINE V8.5.5";
+        "SYSTEM ONLINE V8.5.6";
 
       setState(
         "complete",
@@ -2731,7 +2731,7 @@ html[data-compact=true] .scanlines{display:none}
         }
 
         document.getElementById("onlineText").textContent =
-          data.apiReady ? "AI TRANSCRIBE V8.5.5" : "API KEY NEEDED";
+          data.apiReady ? "AI TRANSCRIBE V8.5.6" : "API KEY NEEDED";
 
         if (SpeechRecognitionCtor) document.getElementById("clapLabel").textContent = "WAKE WORD: JARVIS";
 
@@ -3251,7 +3251,7 @@ html[data-compact=true] .scanlines{display:none}
     );
   }
 
-  // v8.5.5: すべての注文音声をgpt-4o-transcribeへ送る高精度経路。
+  // v8.5.6: すべての注文音声をgpt-4o-transcribeへ送る高精度経路。
   function sendAudioBlob(blob, mimeType) {
     busy = true;
     setState("processing", "AI TRANSCRIBING", "高精度AIで文字起こししています...");
@@ -3300,7 +3300,7 @@ html[data-compact=true] .scanlines{display:none}
     try{reader.readAsDataURL(blob);}catch(e){readFailure852('AUDIO_READ_THROW');}
   }
 
-  // v8.5.5: iPhone SafariでJSONPのload/errorが返らない場合も、
+  // v8.5.6: iPhone SafariでJSONPのload/errorが返らない場合も、
   // 1回ごとの監視タイマーと全体タイマーで必ず次へ進む。
   function pollRequestResult_(requestId, callback, timeoutMs) {
     var startedAt = Date.now();
@@ -3397,7 +3397,7 @@ html[data-compact=true] .scanlines{display:none}
     var transcript = String(result.normalizedTranscript || result.transcript || "").trim();
     showMessage(transcript ? ("認識：" + transcript + "\n\n" + message) : message);
 
-    document.getElementById("onlineText").textContent = "AI TRANSCRIBE V8.5.5";
+    document.getElementById("onlineText").textContent = "AI TRANSCRIBE V8.5.6";
     if (ok) setState("complete", "COMPLETE", "ORDER TURBO");
     else setState("error", "ERROR", result.resultUnknown ? "RESULT UNKNOWN" : "注文内容を確認してください");
 
@@ -3479,7 +3479,7 @@ html[data-compact=true] .scanlines{display:none}
 
 
   // =====================================================
-  // SERINA JARVIS v8.5.5 HIGH ACCURACY AI ORDER
+  // SERINA JARVIS v8.5.6 HIGH ACCURACY AI ORDER
   // - Wake word: local Web Speech
   // - Command body: MediaRecorder -> GAS -> gpt-4o-transcribe
   // - Menu / VoiceAliases / Tables: AI transcription context + deterministic validation
@@ -3525,7 +3525,7 @@ html[data-compact=true] .scanlines{display:none}
     var tc = liveIndexV822_ && liveIndexV822_.tables ? liveIndexV822_.tables.length : 0;
     document.getElementById("clapLabel").textContent = "PRELOAD " + pc + " MENU / " + tc + " TABLES";
 
-    // v8.5.5: GPT Liveは起動しない。注文本文は録音後に高精度AI文字起こしへ送る。
+    // v8.5.6: GPT Liveは起動しない。注文本文は録音後に高精度AI文字起こしへ送る。
   }
 
   function buildLiveContextV82_() {
@@ -3993,7 +3993,7 @@ html[data-compact=true] .scanlines{display:none}
     if (liveReadyV82_) return;
     liveReadyV82_ = true;
     liveConnectingV82_ = false;
-    document.getElementById("onlineText").textContent = "LIVE READY V8.5.5";
+    document.getElementById("onlineText").textContent = "LIVE READY V8.5.6";
     document.getElementById("clapLabel").textContent = "WAKE WORD + GPT LIVE";
     sendLiveEventV82_({
       type: "session.instructions.append",
@@ -4050,7 +4050,7 @@ html[data-compact=true] .scanlines{display:none}
     if (!sourceTrack) return;
 
     liveConnectingV82_ = true;
-    document.getElementById("onlineText").textContent = "LIVE WARMING V8.5.5";
+    document.getElementById("onlineText").textContent = "LIVE WARMING V8.5.6";
 
     try {
       var pc = new RTCPeerConnection();
@@ -4093,7 +4093,7 @@ html[data-compact=true] .scanlines{display:none}
                 if (livePcV82_ !== pc) return;
                 if (!result || result.success !== true || !result.answerSdp) {
                   closeLiveV82_(true);
-                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V8.5.5";
+                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V8.5.6";
                   return;
                 }
                 pc.setRemoteDescription({type:"answer", sdp:String(result.answerSdp)}).catch(function(){
@@ -4243,7 +4243,7 @@ html[data-compact=true] .scanlines{display:none}
     return true;
   }
 
-  // v8.5.5: Wake word stays on Web Speech, but every order body is recorded
+  // v8.5.6: Wake word stays on Web Speech, but every order body is recorded
   // and sent to gpt-4o-transcribe. GPT Live/Web Speech text never registers an order.
   var beginFastVoiceInputBaseV82_ = beginFastVoiceInput_;
   beginFastVoiceInput_ = function() {
@@ -4291,7 +4291,7 @@ html[data-compact=true] .scanlines{display:none}
   window.addEventListener('orientationchange',viewport850);
   if(window.visualViewport) window.visualViewport.addEventListener('resize',viewport850);
   viewport850();
-  // v8.5.5: PCM-first on iOS, VAD from the recorded samples, bounded preparation.
+  // v8.5.6: PCM-first on iOS, VAD from the recorded samples, bounded preparation.
   var agentMonitorSource852=null;
   function isIos852(){return /iPad|iPhone|iPod/.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);}
   function captureUi850(on){document.getElementById('captureControls850').style.display=on?'flex':'none';}
