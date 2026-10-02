@@ -6,13 +6,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#02070b">
-  <title>SERION AI COMPANION 9.0.2 | SERINA</title>
+  <title>SERION AI COMPANION 9.0.4 | SERINA</title>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <script>
   (function(){
-    var version = "9.0.2";
+    var version = "9.0.4";
     var maxUrlAgeMs = 5 * 60 * 1000;
     var now = Date.now();
     var url;
@@ -418,7 +418,7 @@
     }
 
 
-    /* v9.0.2 futuristic initialization overlay */
+    /* v9.0.4 futuristic initialization overlay */
     .boot-overlay {
       position: fixed; inset: 0; z-index: 80; display: none;
       align-items: center; justify-content: center; padding: 24px;
@@ -614,7 +614,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V9.0.2</div>
+      <div class="online-text" id="onlineText">BOOTING V9.0.4</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -675,7 +675,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
 <div class="boot-overlay" id="bootOverlay" aria-live="polite">
   <div class="boot-shell">
     <div class="boot-brand">SERION</div>
-    <div class="boot-version">SERINA CORE // BOOT SEQUENCE 9.0.2</div>
+    <div class="boot-version">SERINA CORE // BOOT SEQUENCE 9.0.4</div>
     <div class="boot-reactor">
       <div class="boot-ring r1"></div><div class="boot-ring r2"></div><div class="boot-ring r3"></div>
       <div class="boot-core"></div>
@@ -689,7 +689,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
       <div class="boot-module" id="bootModuleTables"><div class="boot-module-name">TABLES</div><div class="boot-module-state">WAIT</div></div>
       <div class="boot-module" id="bootModuleVoice"><div class="boot-module-name">VOICE</div><div class="boot-module-state">WAIT</div></div>
     </div>
-    <button class="boot-retry" id="bootRetryButton" type="button" onclick="window.location.reload()">RELOAD SERION</button>
+    <button class="boot-retry" id="bootRetryButton" type="button" onclick="startSystem()">再試行 SERION</button>
   </div>
 </div>
 
@@ -803,7 +803,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     window.webkitSpeechRecognition ||
     null;
 
-  // v9.0.2 HIGH ACCURACY + iPhone SE AUDIO FIX:
+  // v9.0.4 HIGH ACCURACY + iPhone SE AUDIO FIX:
   // ウェイクワードだけWeb Speechを使用する。
   // 注文本文は必ずMediaRecorderで録音し、GAS経由のgpt-4o-transcribeで文字起こしする。
   // Web Speech / GPT Liveの注文文字列だけで登録しない。
@@ -862,7 +862,25 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
   var NO_SPEECH_TIMEOUT_MS = 6000;
   var END_SILENCE_MS = 850;
 
-  var APP_VERSION = "9.0.2";
+  var APP_VERSION = "9.0.4";
+  var memoryStore904={},bootRun904=0,bootStarting904=false,bootTimers904=[];
+  var serionSpeaking904=false;
+  function storageGet904(k){try{return localStorage.getItem(k)||memoryStore904[k]||null;}catch(e){return memoryStore904[k]||null;}}
+  function storageSet904(k,v){memoryStore904[k]=String(v);try{localStorage.setItem(k,v);}catch(e){}}
+  function stopBootTimers904(){bootTimers904.forEach(clearTimeout);bootTimers904=[];}
+  function bootTimer904(f,ms){var id=setTimeout(f,ms);bootTimers904.push(id);return id;}
+  function releaseMonitor904(){
+    if(monitorInterval){clearInterval(monitorInterval);monitorInterval=null;}
+    if(agentMonitorSource852){try{agentMonitorSource852.disconnect();}catch(e){}agentMonitorSource852=null;}
+    if(micStream&&micStream.getTracks)micStream.getTracks().forEach(function(t){try{t.stop();}catch(e){}});
+  }
+  function bootFail904(run,title,detail){
+    if(run!==bootRun904||!bootStarting904)return;
+    bootStarting904=false;stopBootTimers904();releaseMonitor904();micReady=false;
+    bootPhaseV850_(100,title,detail);setState('error',title,detail);
+    var retry=document.getElementById('bootRetryButton');if(retry)retry.className='boot-retry show';
+  }
+
   var bootActiveV850_ = false;
   var bootMicReadyV850_ = false;
   var bootCalibratedV850_ = false;
@@ -891,15 +909,16 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
   }
 
   function bootMaybeReadyV850_() {
-    if(!bootActiveV850_ || !bootMicReadyV850_ || !bootCalibratedV850_ || !bootDataReadyV850_) return;
-    firstClapAt = 0; resetClapPulse_(); quietSince = Date.now();
-    setState("standby","STANDBY",SpeechRecognitionCtor ? "「セリオン」と呼んでください" : "マイクボタンから音声入力できます");
-    bootPhaseV850_(100,"JARVIS ONLINE","Menu / Tables / Voice dictionary synchronized");
-    if (SpeechRecognitionCtor) setTimeout(startWakeWordRecognition_, 350);
-    setTimeout(function(){
-      var el=document.getElementById("bootOverlay"); if(el) el.className="boot-overlay";
-      bootActiveV850_=false;
-    }, Math.max(520, 1150-(Date.now()-bootStartedAtV850_)));
+    if(!bootStarting904||!bootMicReadyV850_||!bootCalibratedV850_||!bootDataReadyV850_)return;
+    var run=bootRun904;stopBootTimers904();releaseMonitor904();
+    bootPhaseV850_(100,'SERION ONLINE','Menu / Tablesの取得と音声準備が完了しました');
+    bootTimer904(function(){
+      if(run!==bootRun904||!bootStarting904)return;
+      bootStarting904=false;bootActiveV850_=false;
+      var el=document.getElementById('bootOverlay');if(el)el.className='boot-overlay';
+      setState('standby','STANDBY',SpeechRecognitionCtor?'「セリオン」と呼んでください':'マイクボタンから音声入力できます');
+      startWakeWordRecognition_();
+    },250);
   }
 
   window.addEventListener("load", function() {
@@ -907,7 +926,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     setupInput();
     setupTransportListener();
 
-    var savedSensitivity = Number(localStorage.getItem(SENSITIVITY_STORAGE_KEY) || 0);
+    var savedSensitivity = Number(storageGet904(SENSITIVITY_STORAGE_KEY) || 0);
     if (savedSensitivity >= 1 && savedSensitivity <= 10) {
       sensitivity = savedSensitivity;
     }
@@ -918,7 +937,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     updatePairingUi();
 
     if (getPairingToken()) {
-      document.getElementById("onlineText").textContent = "READY TO START V9.0.2";
+      document.getElementById("onlineText").textContent = "READY TO START V9.0.4";
     } else {
       document.getElementById("onlineText").textContent = "PAIRING NEEDED";
     }
@@ -944,7 +963,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
 
 
   function getPairingToken() {
-    return String(localStorage.getItem(TOKEN_STORAGE_KEY) || "").trim();
+    return String(storageGet904(TOKEN_STORAGE_KEY) || "").trim();
   }
 
 
@@ -953,7 +972,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
 
     if (!token) return false;
 
-    localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    storageSet904(TOKEN_STORAGE_KEY, token);
     document.getElementById("pairTokenInput").value = "";
     updatePairingUi();
     return true;
@@ -975,143 +994,65 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
 
 
   window.startSystem = function() {
-    var typedToken = document.getElementById("pairTokenInput").value;
-
-    if (typedToken) savePairingToken(typedToken);
-
-    if (!getPairingToken()) {
-      setState("error", "PAIRING REQUIRED", "ペアリングトークンを入力してください");
-      document.getElementById("pairHint").textContent = "GASで発行したトークンが必要です";
-      return;
+    if(bootStarting904||busy||agentCapture850)return;
+    var typed=document.getElementById('pairTokenInput').value;
+    if(typed)savePairingToken(typed);
+    if(!getPairingToken()){setState('error','PAIRING REQUIRED','ペアリングトークンを入力してください');return;}
+    stopBootTimers904();stopWakeWordRecognition_();releaseMonitor904();
+    serionSpeaking904=false;serionStop900();if(window.speechSynthesis)window.speechSynthesis.cancel();
+    var run=++bootRun904;bootStarting904=true;micReady=false;agentCoreReady850=false;wake901.blocked=false;wake901.failures=0;
+    showBootOverlayV850_();setState('processing','STARTING','音声とMenu / Tablesを準備しています');
+    document.getElementById('startOverlay').style.display='none';
+    // Create/resume synchronously in the SYSTEM START tap on iOS.
+    try{
+      var AC=window.AudioContext||window.webkitAudioContext;
+      if(!AC)throw Error('AudioContext unsupported');
+      if(!audioContext||audioContext.state==='closed')audioContext=new AC();
+      if(audioContext.state!=='running'){var resume=audioContext.resume();if(resume&&resume.catch)resume.catch(function(){});}
+    }catch(e){bootFail904(run,'AUDIO ERROR','音声機能を開始できません。Safariで再試行してください');return;}
+    bootTimer904(function(){bootFail904(run,'BOOT TIMEOUT','初期データを確認できません。通信状態を確認して再試行してください');},42000);
+    // Permission wait must never block the independent menu request.
+    function fetchMenu(attempt){
+      if(run!==bootRun904||!bootStarting904)return;
+      loadBootstrap({boot:true,bootRun:run,onDone:function(ok,data){
+        if(run!==bootRun904||!bootStarting904)return;
+        if(ok){bootDataReadyV850_=true;bootMaybeReadyV850_();return;}
+        if(attempt===0){bootPhaseV850_(55,'DATABASE RETRY','初期情報の取得を再試行しています');bootTimer904(function(){fetchMenu(1);},700);return;}
+        bootFail904(run,'DATABASE ERROR',(data&&data.message)||'Menu / Tablesを取得できません。GASのURL・デプロイ・シートを確認してください');
+      }});
     }
-
-    showBootOverlayV850_();
-    setState("processing", "STARTING", "JARVISを初期化しています...");
-    unlockSpeech();
-    bootPhaseV850_(12,"MICROPHONE LINK","音声入力回路を初期化しています");
-
-    startAudioMonitor(function(ok, message) {
-      if (!ok) {
-        bootModuleV850_("Mic","ERROR",false,true);
-        bootPhaseV850_(100,"MICROPHONE ERROR",message || "マイクを開始できません");
-        setState("error", "MIC ERROR", message || "マイクを開始できません。");
-        return;
-      }
-
-      micReady = true;
-      bootMicReadyV850_ = true;
-      bootModuleV850_("Mic","LINKED",true);
-      document.getElementById("startOverlay").style.display = "none";
-
-      // Menu / Tables / VoiceAliases はマイク校正と並列で最新値を取得。
-      bootPhaseV850_(34,"DATABASE SYNCHRONIZATION","最新のMenu / Tablesを取得しています");
-      loadBootstrap({
-        boot:true,
-        onDone:function(okBoot, dataBoot) {
-          if (!okBoot) {
-            bootModuleV850_("Menu","RETRY",false,true);
-            bootModuleV850_("Tables","RETRY",false,true);
-            bootModuleV850_("Voice","RETRY",false,true);
-            setTimeout(function(){
-              loadBootstrap({boot:true,onDone:function(okRetry,dataRetry){
-                if(!okRetry){
-                  var cached = !!liveMenuV82_;
-                  bootModuleV850_("Menu",cached?"CACHE":"ERROR",cached,!cached);
-                  bootModuleV850_("Tables",cached?"CACHE":"ERROR",cached,!cached);
-                  bootModuleV850_("Voice",cached?"CACHE":"ERROR",cached,!cached);
-                  if(cached){ bootDataReadyV850_=true; bootPhaseV850_(86,"CACHE FALLBACK","通信不良のため端末キャッシュで起動します"); bootMaybeReadyV850_(); }
-                  else {
-                    bootPhaseV850_(100,"DATABASE OFFLINE","Menu / Tablesを取得できませんでした。再読み込みしてください");
-                    var retry=document.getElementById("bootRetryButton"); if(retry) retry.className="boot-retry show";
-                  }
-                }
-              }});
-            },900);
-            return;
-          }
-          bootDataReadyV850_ = true;
-          bootPhaseV850_(82,"DICTIONARY COMPILE","注文用辞書を構築しています");
-          bootMaybeReadyV850_();
-        }
-      });
-
-      calibratingUntil = Date.now() + 1100;
-      setState("calibrating", "CALIBRATING", "約1秒、静かにして環境音を測定します...");
-      bootPhaseV850_(48,"AUDIO CALIBRATION","環境音レベルを測定しています");
-
-      setTimeout(function() {
-        bootCalibratedV850_ = true;
-        bootModuleV850_("Mic","CALIBRATED",true);
-        if (!bootDataReadyV850_) bootPhaseV850_(62,"DATABASE SYNCHRONIZATION","Menu / Tables / VoiceAliases を待機しています");
-        bootMaybeReadyV850_();
-      }, 1150);
-    });
+    var micWatch=bootTimer904(function(){bootFail904(run,'MICROPHONE TIMEOUT','マイクの許可を確認して「再試行」を押してください');},15000);
+    startAudioMonitor(function(ok,message){
+      if(run!==bootRun904||!bootStarting904)return;
+      clearTimeout(micWatch);
+      if(!ok){bootModuleV850_('Mic','ERROR',false,true);bootFail904(run,'MICROPHONE ERROR',message);return;}
+      micReady=true;bootMicReadyV850_=true;bootModuleV850_('Mic','LINKED',true);
+      calibratingUntil=Date.now()+1100;setState('calibrating','CALIBRATING','音声入力を確認しています');
+      bootTimer904(function(){
+        if(run!==bootRun904||!bootStarting904)return;
+        bootCalibratedV850_=true;bootModuleV850_('Mic','READY',true);bootMaybeReadyV850_();
+      },1150);
+    },run);
+    fetchMenu(0);
   };
 
-
-  function startAudioMonitor(done) {
-    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
-      done(false, "このブラウザではマイクを利用できません。");
-      return;
-    }
-
-    navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true
-      },
-      video: false
-    }).then(function(stream) {
-      micStream = stream;
-
-      var AC = window.AudioContext || window.webkitAudioContext;
-
-      if (!AC) {
-        done(false, "AudioContextに対応していません。");
-        return;
-      }
-
-      audioContext = new AC();
-
-      if (audioContext.state === "suspended") {
-        audioContext.resume();
-      }
-
-      var source = audioContext.createMediaStreamSource(stream);
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 1024;
-      analyser.smoothingTimeConstant = 0.15;
-      source.connect(analyser);
-
-      // 拍手専用：人の声の主成分を落として高域の衝撃音を見る
-      clapHighpass = audioContext.createBiquadFilter();
-      clapHighpass.type = "highpass";
-      clapHighpass.frequency.value = 1800;
-      clapHighpass.Q.value = 0.7;
-
-      clapAnalyser = audioContext.createAnalyser();
-      clapAnalyser.fftSize = 1024;
-      clapAnalyser.smoothingTimeConstant = 0.05;
-
-      source.connect(clapHighpass);
-      clapHighpass.connect(clapAnalyser);
-
-      audioData = new Uint8Array(analyser.fftSize);
-      frequencyData = new Uint8Array(analyser.frequencyBinCount);
-      clapHighData = new Uint8Array(clapAnalyser.fftSize);
-
-      if (monitorInterval) clearInterval(monitorInterval);
-      monitorInterval = setInterval(sampleAudio, 20);
-
-      done(true);
-    }).catch(function(err) {
-      done(
-        false,
-        "マイク権限を確認してください。 " +
-        (err && err.message ? err.message : "")
-      );
-    });
+  function startAudioMonitor(done,run) {
+    if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){done(false,'Safariのマイク機能を利用できません');return;}
+    navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false}).then(function(stream){
+      if(run!==bootRun904||!bootStarting904){stream.getTracks().forEach(function(t){t.stop();});return;}
+      micStream=stream;
+      return resumeAudio852().then(function(){
+        if(run!==bootRun904||!bootStarting904){stream.getTracks().forEach(function(t){t.stop();});return;}
+        agentMonitorSource852=audioContext.createMediaStreamSource(stream);
+        analyser=audioContext.createAnalyser();analyser.fftSize=1024;analyser.smoothingTimeConstant=.15;
+        clapHighpass=audioContext.createBiquadFilter();clapHighpass.type='highpass';clapHighpass.frequency.value=1800;clapHighpass.Q.value=.7;
+        clapAnalyser=audioContext.createAnalyser();clapAnalyser.fftSize=1024;clapAnalyser.smoothingTimeConstant=.05;
+        agentMonitorSource852.connect(analyser);agentMonitorSource852.connect(clapHighpass);clapHighpass.connect(clapAnalyser);
+        audioData=new Uint8Array(analyser.fftSize);frequencyData=new Uint8Array(analyser.frequencyBinCount);clapHighData=new Uint8Array(clapAnalyser.fftSize);
+        if(monitorInterval)clearInterval(monitorInterval);monitorInterval=setInterval(sampleAudio,20);
+        done(true);
+      });
+    }).catch(function(e){if(run===bootRun904&&bootStarting904)done(false,'マイクを開始できません。許可を確認して再試行してください ('+String(e.name||'AUDIO_ERROR')+')');});
   }
 
 
@@ -2213,7 +2154,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
       // bootstrapを一度取りこぼしてAPI OFFLINE表示になっていても、
       // 実際のAPI応答が成功したらオンライン表示へ復帰。
       document.getElementById("onlineText").textContent =
-        "SYSTEM ONLINE V9.0.2";
+        "SYSTEM ONLINE V9.0.4";
 
       setState(
         "complete",
@@ -2602,6 +2543,11 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
       "bootstrap",
       { deviceId: deviceId, clientVersion: APP_VERSION, cacheBust: Date.now() },
       function(data) {
+        if(options.bootRun&&(options.bootRun!==bootRun904||!bootStarting904))return;
+        var preload904=data&&data.preloadMenu;
+        if(data&&data.success===true&&(!agentCoreReady850||!data.apiReady||!preload904||!Array.isArray(preload904.products)||!preload904.products.some(function(p){return p&&String(p.name||'').trim();})||!Array.isArray(preload904.tables)||!preload904.tables.length)){
+          data={success:false,message:!agentCoreReady850?'GAS v9.0.0のデプロイを確認してください':!data.apiReady?'GASから店舗の初期データを取得できませんでした':'Menu / Tablesが空か、初期データの形式が不正です'};
+        }
         if (!data || data.success !== true) {
           document.getElementById("onlineText").textContent = "API OFFLINE";
           if (typeof options.onDone === "function") options.onDone(false, data || null);
@@ -2611,7 +2557,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
         voiceEnabled = data.voiceReplyEnabled !== false;
         clapEnabled = data.clapEnabled !== false;
 
-        if (!localStorage.getItem(SENSITIVITY_STORAGE_KEY)) {
+        if (!storageGet904(SENSITIVITY_STORAGE_KEY)) {
           sensitivity = Number(data.clapSensitivity || 6);
           document.getElementById("sensitivity").value = sensitivity;
           document.getElementById("sensitivityText").textContent = String(sensitivity);
@@ -2619,7 +2565,9 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
 
         document.getElementById("voiceText").textContent = voiceEnabled ? "ON" : "OFF";
 
-        try { onBootstrapV82_(data); } catch (bootErrV82) {}
+        try { onBootstrapV82_(data); } catch (bootErrV82) {
+          if(typeof options.onDone==='function')options.onDone(false,{message:'Menu / Tablesの辞書を構築できませんでした'});return;
+        }
 
         var preload = data.preloadMenu || {};
         var pc = Array.isArray(preload.products) ? preload.products.length : 0;
@@ -2632,7 +2580,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
         }
 
         document.getElementById("onlineText").textContent =
-          data.apiReady ? "AI TRANSCRIBE V9.0.2" : "API KEY NEEDED";
+          data.apiReady ? "AI TRANSCRIBE V9.0.4" : "API KEY NEEDED";
 
         if (SpeechRecognitionCtor) document.getElementById("clapLabel").textContent = "WAKE WORD: SERION";
 
@@ -2642,7 +2590,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
 
         if (typeof options.onDone === "function") options.onDone(true, data);
       },
-      25000
+      18000
     );
   }
 
@@ -2819,16 +2767,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
   }
 
 
-  setInterval(function() {
-    if (
-      state === "processing" &&
-      !busy
-    ) {
-      returnToStandby(
-        "処理待機を解除しました"
-      );
-    }
-  }, 5000);
+  // Startup and speech own their deadlines; never force processing into standby.
 
 
   window.toggleSettings = function() {
@@ -2846,7 +2785,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
       document.getElementById("sensitivity").value || 6
     );
 
-    localStorage.setItem(
+    storageSet904(
       SENSITIVITY_STORAGE_KEY,
       String(sensitivity)
     );
@@ -3152,7 +3091,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     );
   }
 
-  // v9.0.2: すべての注文音声をgpt-4o-transcribeへ送る高精度経路。
+  // v9.0.4: すべての注文音声をgpt-4o-transcribeへ送る高精度経路。
   function sendAudioBlob(blob, mimeType) {
     busy = true;
     setState("processing", "AI TRANSCRIBING", "高精度AIで文字起こししています...");
@@ -3201,7 +3140,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     try{reader.readAsDataURL(blob);}catch(e){readFailure852('AUDIO_READ_THROW');}
   }
 
-  // v9.0.2: iPhone SafariでJSONPのload/errorが返らない場合も、
+  // v9.0.4: iPhone SafariでJSONPのload/errorが返らない場合も、
   // 1回ごとの監視タイマーと全体タイマーで必ず次へ進む。
   function pollRequestResult_(requestId, callback, timeoutMs) {
     var startedAt = Date.now();
@@ -3298,7 +3237,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     var transcript = String(result.normalizedTranscript || result.transcript || "").trim();
     showMessage(transcript ? ("認識：" + transcript + "\n\n" + message) : message);
 
-    document.getElementById("onlineText").textContent = "AI TRANSCRIBE V9.0.2";
+    document.getElementById("onlineText").textContent = "AI TRANSCRIBE V9.0.4";
     if (ok) setState("complete", "COMPLETE", "ORDER TURBO");
     else setState("error", "ERROR", result.resultUnknown ? "RESULT UNKNOWN" : "注文内容を確認してください");
 
@@ -3380,7 +3319,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
 
 
   // =====================================================
-  // SERINA JARVIS v9.0.2 HIGH ACCURACY AI ORDER
+  // SERINA JARVIS v9.0.4 HIGH ACCURACY AI ORDER
   // - Wake word: local Web Speech
   // - Command body: MediaRecorder -> GAS -> gpt-4o-transcribe
   // - Menu / VoiceAliases / Tables: AI transcription context + deterministic validation
@@ -3415,10 +3354,10 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     if (data && data.preloadMenu) {
       liveMenuV82_ = data.preloadMenu;
       try {
-        localStorage.setItem(V82_MENU_STORAGE_KEY, JSON.stringify(liveMenuV82_));
+        storageSet904(V82_MENU_STORAGE_KEY, JSON.stringify(liveMenuV82_));
       } catch (ignore) {}
     } else if (!liveMenuV82_) {
-      liveMenuV82_ = v82SafeJsonParse_(localStorage.getItem(V82_MENU_STORAGE_KEY));
+      liveMenuV82_ = v82SafeJsonParse_(storageGet904(V82_MENU_STORAGE_KEY));
     }
 
     buildLocalMenuIndexV822_();
@@ -3426,7 +3365,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     var tc = liveIndexV822_ && liveIndexV822_.tables ? liveIndexV822_.tables.length : 0;
     document.getElementById("clapLabel").textContent = "PRELOAD " + pc + " MENU / " + tc + " TABLES";
 
-    // v9.0.2: GPT Liveは起動しない。注文本文は録音後に高精度AI文字起こしへ送る。
+    // v9.0.4: GPT Liveは起動しない。注文本文は録音後に高精度AI文字起こしへ送る。
   }
 
   function buildLiveContextV82_() {
@@ -3894,7 +3833,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     if (liveReadyV82_) return;
     liveReadyV82_ = true;
     liveConnectingV82_ = false;
-    document.getElementById("onlineText").textContent = "LIVE READY V9.0.2";
+    document.getElementById("onlineText").textContent = "LIVE READY V9.0.4";
     document.getElementById("clapLabel").textContent = "WAKE WORD + GPT LIVE";
     sendLiveEventV82_({
       type: "session.instructions.append",
@@ -3951,7 +3890,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     if (!sourceTrack) return;
 
     liveConnectingV82_ = true;
-    document.getElementById("onlineText").textContent = "LIVE WARMING V9.0.2";
+    document.getElementById("onlineText").textContent = "LIVE WARMING V9.0.4";
 
     try {
       var pc = new RTCPeerConnection();
@@ -3994,7 +3933,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
                 if (livePcV82_ !== pc) return;
                 if (!result || result.success !== true || !result.answerSdp) {
                   closeLiveV82_(true);
-                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V9.0.2";
+                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V9.0.4";
                   return;
                 }
                 pc.setRemoteDescription({type:"answer", sdp:String(result.answerSdp)}).catch(function(){
@@ -4144,7 +4083,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     return true;
   }
 
-  // v9.0.2: Wake word stays on Web Speech, but every order body is recorded
+  // v9.0.4: Wake word stays on Web Speech, but every order body is recorded
   // and sent to gpt-4o-transcribe. GPT Live/Web Speech text never registers an order.
   var beginFastVoiceInputBaseV82_ = beginFastVoiceInput_;
   beginFastVoiceInput_ = function() {
@@ -4175,7 +4114,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
 
   // Restore cached menu immediately; latest data is refreshed by bootstrap in the background.
   try {
-    if (!liveMenuV82_) liveMenuV82_ = v82SafeJsonParse_(localStorage.getItem(V82_MENU_STORAGE_KEY));
+    if (!liveMenuV82_) liveMenuV82_ = v82SafeJsonParse_(storageGet904(V82_MENU_STORAGE_KEY));
     if (liveMenuV82_) buildLocalMenuIndexV822_();
   } catch (ignoreV82) {}
 
@@ -4192,7 +4131,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
   window.addEventListener('orientationchange',viewport850);
   if(window.visualViewport) window.visualViewport.addEventListener('resize',viewport850);
   viewport850();
-  // v9.0.2: PCM-first on iOS, VAD from the recorded samples, bounded preparation.
+  // v9.0.4: PCM-first on iOS, VAD from the recorded samples, bounded preparation.
   var agentMonitorSource852=null;
   function isIos852(){return /iPad|iPhone|iPod/.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);}
   function captureUi850(on){document.getElementById('captureControls850').style.display=on?'flex':'none';}
@@ -4354,7 +4293,8 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     }else nativeAck900();
   }
   function startCapture850(acknowledge){
-    if(agentCapture850||busy)return;
+    if(agentCapture850||busy||bootActiveV850_||!micReady)return;
+    serionSpeaking904=false;
     if(!micStream){handleResult({success:false,message:'SYSTEM STARTでマイクを起動してください。'});return;}
     if(commandDeadlineTimer){clearTimeout(commandDeadlineTimer);commandDeadlineTimer=null;}
     var c={started:Date.now(),lastVoice:0,voiceMs:0,silenceMs:0,heard:false,floor:.003,frames:0,lastFrame:0,chunks:[],done:false,stopping:false,needsAck:acknowledge===true,ackDone:acknowledge!==true};
@@ -4403,7 +4343,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
   var agentCoreReady850=false;
   var originalApiRequest850=apiRequest;
   apiRequest=function(action,data,callback,timeout){
-    if(action==='bootstrap'){return originalApiRequest850(action,data,function(r){agentCoreReady850=!!(r&&String(r.version||r.coreVersion).match(/V9_0_0(?:_|$)/));callback(r);if(!agentCoreReady850){document.getElementById('onlineText').textContent='GAS UPDATE REQUIRED';showMessage('GAS側をSERION v9.0.0へ更新・再デプロイしてください。');}},timeout);}
+    if(action==='bootstrap'){var requestRun904=bootRun904;return originalApiRequest850(action,data,function(r){if(requestRun904!==bootRun904)return;agentCoreReady850=!!(r&&String(r.version||r.coreVersion).match(/V9_0_0(?:_|$)/));callback(r);if(!agentCoreReady850){document.getElementById('onlineText').textContent='GAS UPDATE REQUIRED';showMessage('GAS側をSERION v9.0.0へ更新・再デプロイしてください。');}},timeout);}
     if(!agentCoreReady850&&/^(audio_order|order_fast|order_confirm)$/.test(action)){callback({success:false,message:'GAS側のSERION v9.0.0を確認できません。GASを更新してからSYSTEM STARTで起動し直してください。',noMutation:true});return;}
     if(action==='audio_order'&&agentConfirmOp850){data.confirmationOperationId=agentConfirmOp850;agentConfirmOp850='';}
     return originalApiRequest850(action,data,callback,timeout);
@@ -4493,13 +4433,13 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
   };
   document.addEventListener('visibilitychange',function(){
     if(document.hidden){var c=agentCapture850;if(c){c.cancelled=true;window.finishVoice850();}stopWakeWordRecognition_();stopConfirmV814_();if(window.speechSynthesis)window.speechSynthesis.cancel();agentSpeechSerial850++;}
-    else if(!busy&&!v814Confirm&&state!=='offline')returnToStandby('画面復帰後はマイクから再開できます');
+    else if(!bootActiveV850_&&!bootStarting904&&!serionSpeaking904&&!agentCapture850&&!busy&&!v814Confirm&&state!=='offline')returnToStandby('画面復帰後はマイクから再開できます');
   });
 
   // SERION: bounded in-memory conversation; no history is used to fill order targets.
   var serionHistory900=[],serionMode900='auto',serionClips900={},serionSource900=null,serionPlayEpoch900=0;
   var serionFixed900=['はい！','完了しました！\nモニターにて内容をご確認下さい！'];
-  try{serionFixed900.forEach(function(t,i){var s=localStorage.getItem('serionVoice900_'+i);if(s)serionClips900[t]=s;});}catch(ignore){}
+  try{serionFixed900.forEach(function(t,i){var s=storageGet904('serionVoice900_'+i);if(s)serionClips900[t]=s;});}catch(ignore){}
   window.serionSetMode900=function(mode){
     if(busy||agentCapture850)return;
     serionMode900=mode;
@@ -4539,7 +4479,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
         if(!c||!c.success||!c.audioBase64){done(null);return;}
         data+=c.audioBase64;i++;
         if(i<r.parts){part();return;}
-        if(serionFixed900.indexOf(text)>=0){serionClips900[text]=data;try{localStorage.setItem('serionVoice900_'+serionFixed900.indexOf(text),data);}catch(ignore){}}
+        if(serionFixed900.indexOf(text)>=0){serionClips900[text]=data;try{storageSet904('serionVoice900_'+serionFixed900.indexOf(text),data);}catch(ignore){}}
         done(data);
       },12000);}
       part();
@@ -4584,15 +4524,31 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     });
   };
   var serionManual900=window.manualListen;
-  window.manualListen=function(){serionStop900();serionManual900();};
+  window.manualListen=function(){serionSpeaking904=false;serionStop900();serionManual900();};
   var serionSend900=sendCommand;
-  sendCommand=function(text,type){if(busy||agentCapture850)return;serionStop900();agentSpeechSerial850++;serionSend900(text,type);};
+  sendCommand=function(text,type){if(busy||agentCapture850||bootActiveV850_)return;serionSpeaking904=false;serionStop900();agentSpeechSerial850++;serionSend900(text,type);};
   document.addEventListener('visibilitychange',function(){document.documentElement.setAttribute('data-serion-hidden',document.hidden?'true':'false');if(document.hidden)serionStop900();});
   var serionQuick900=window.quickQuery850;
   window.quickQuery850=function(t){var mode=serionMode900;serionMode900='auto';serionQuick900(t);serionMode900=mode;};
 
-  // v9.0.2: local wake recognition only; no extra cloud audio upload.
-  var wake901={starting:false,blocked:false,started:0,last:0,speech:0,failures:0,heard:''};
+
+  var speakBase904=speak;
+  speak=function(text,done){
+    serionSpeaking904=true;stopWakeWordRecognition_();
+    speakBase904(text,function(){serionSpeaking904=false;if(done)done();});
+  };
+  var resumeStandby904=false;
+  document.addEventListener('visibilitychange',function(){
+    if(document.hidden){
+      if(bootStarting904)bootFail904(bootRun904,'START PAUSED','Safariへ戻り「再試行」を押してください');
+      if(micReady&&!bootActiveV850_)resumeStandby904=true;
+      serionSpeaking904=false;releaseMonitor904();
+    }else if(resumeStandby904&&!busy&&!agentCapture850&&!v814Confirm&&!bootActiveV850_){
+      resumeStandby904=false;returnToStandby('「セリオン」と呼んでください');
+    }
+  });
+  // v9.0.4: local wake recognition only; no extra cloud audio upload.
+  var wake901={starting:false,blocked:false,started:0,last:0,speech:0,failures:0,captureErrors:0,heard:''};
   function wakeStatus901(label){
     var e=document.getElementById('wakeStatus901');
     if(e)e.textContent=label+(wake901.heard?' ／ 聞き取り：'+wake901.heard:'');
@@ -4608,7 +4564,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     // Limited whole-call variants; never accept generic レオン / セリ / オン.
     return /^(?:へい|ねえ|ねぇ|おい|おおい|もしもし)?(?:せりよん|せりお|ちぇりお|せり音|芹音|競り音)(?:さん|ちゃん|くん)?$/.test(s);
   }
-  function wakeAllowed901(){return !!SpeechRecognitionCtor&&micReady&&state==='standby'&&!busy&&!commandModeActive&&!agentCapture850&&!document.hidden&&!wake901.blocked;}
+  function wakeAllowed901(){return !bootActiveV850_&&!bootStarting904&&!serionSpeaking904&&!serionSource900&&!(window.speechSynthesis&&window.speechSynthesis.speaking)&&!v814Confirm&&!!SpeechRecognitionCtor&&micReady&&state==='standby'&&!busy&&!commandModeActive&&!agentCapture850&&!document.hidden&&!wake901.blocked;}
   function stopWakeWordRecognition_(){
     clearTimeout(wakeRestartTimer);wakeRestartTimer=null;
     var old=wakeRecognition;wakeRecognition=null;wakeRecognitionRunning=false;wake901.starting=false;wake901.speech=0;
@@ -4621,19 +4577,20 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
   }
   function startWakeWordRecognition_(){
     if(!wakeAllowed901()||wakeRecognitionRunning||wake901.starting||wakeRestartTimer)return;
+    releaseMonitor904();
     var r;
     try{
       r=new SpeechRecognitionCtor();wakeRecognition=r;wake901.starting=true;wake901.started=Date.now();wake901.last=Date.now();
       r.lang='ja-JP';r.continuous=!isIos852();r.interimResults=true;r.maxAlternatives=5;
       wakeStatus901('呼びかけ待機：マイク接続中');
       var seen={};
-      r.onstart=function(){if(wakeRecognition!==r)return;wake901.starting=false;wakeRecognitionRunning=true;wake901.started=Date.now();wakeStatus901('呼びかけ待機中');};
+      r.onstart=function(){if(wakeRecognition!==r)return;if(!wakeAllowed901()){stopWakeWordRecognition_();return;}wake901.starting=false;wakeRecognitionRunning=true;wake901.started=Date.now();wakeStatus901('呼びかけ待機中');};
       r.onspeechstart=function(){if(wakeRecognition===r)wake901.speech=Date.now();};
       r.onspeechend=function(){if(wakeRecognition===r)wake901.speech=0;};
       r.onresult=function(event){
         if(wakeRecognition!==r||!wakeAllowed901())return;
         var now=Date.now(),index=Number(event.resultIndex)||0,found=false,display=[],tails=[''];
-        wake901.last=now;wake901.failures=0;
+        wake901.last=now;wake901.failures=0;wake901.captureErrors=0;
         for(var i=Math.max(0,index-1);i<event.results.length;i++){
           var item=event.results[i];if(!item)continue;
           if(i>=index)seen[i]=now;
@@ -4652,18 +4609,22 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
       r.onerror=function(event){
         if(wakeRecognition!==r)return;
         var name=String(event.error||'unknown');
-        if(/^(not-allowed|service-not-allowed|audio-capture)$/.test(name)){
+        if(/^(not-allowed|service-not-allowed)$/.test(name)){
           wake901.blocked=true;stopWakeWordRecognition_();wakeStatus901('マイク許可を確認して「待機再開」を押してください ('+name+')');return;
         }
+        if(name==='audio-capture'&&++wake901.captureErrors>3){wake901.blocked=true;stopWakeWordRecognition_();wakeStatus901('マイクを再開できません。「待機再開」を押してください');return;}
         wake901.failures++;wakeRetry901(name==='no-speech'?350:Math.min(8000,500*Math.pow(2,Math.min(wake901.failures,4))));
       };
-      r.onend=function(){if(wakeRecognition!==r)return;wakeRetry901(300);};
+      r.onend=function(){if(wakeRecognition!==r)return;
+        var short=Date.now()-wake901.started<1500;if(short)wake901.failures++;else wake901.failures=0;
+        wakeRetry901(short?Math.min(8000,500*Math.pow(2,Math.min(wake901.failures,4))):300);
+      };
       r.start();
     }catch(e){wake901.failures++;wakeRetry901(Math.min(8000,500*Math.pow(2,Math.min(wake901.failures,4))));}
   }
   window.restartWake901=function(){
     if(busy||agentCapture850||state!=='standby')return;
-    wake901.blocked=false;wake901.failures=0;stopWakeWordRecognition_();startWakeWordRecognition_();
+    wake901.blocked=false;wake901.failures=0;wake901.captureErrors=0;stopWakeWordRecognition_();startWakeWordRecognition_();
   };
   setInterval(function(){
     if(!wakeAllowed901()||wakeRestartTimer)return;
