@@ -6,13 +6,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#02070b">
-  <title>CHARLIE AI COMPANION 9.0.6 | SERINA</title>
+  <title>CHARLIE AI COMPANION 9.0.7 | SERINA</title>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <script>
   (function(){
-    var version = "9.0.6";
+    var version = "9.0.7";
     var maxUrlAgeMs = 5 * 60 * 1000;
     var now = Date.now();
     var url;
@@ -418,7 +418,7 @@
     }
 
 
-    /* v9.0.6 futuristic initialization overlay */
+    /* v9.0.7 futuristic initialization overlay */
     .boot-overlay {
       position: fixed; inset: 0; z-index: 80; display: none;
       align-items: center; justify-content: center; padding: 24px;
@@ -574,6 +574,18 @@ html[data-short=true] .reactor,html[data-short=true] .brand-sub{display:none}
 .agent-controls button+button{margin-left:4px}.header-right>*+*{margin-left:5px}
 html[data-compact=true] .scanlines{display:none}
 
+
+.reactor[role=button]{cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+.reactor[role=button]:focus-visible{outline:2px solid #9ffbff;outline-offset:4px}
+.tap-hint907{padding:6px;text-align:center;font-size:13px;color:#b9effa}
+.reactor[data-tap-feedback=peek] .pet-body{animation:petPeek907 .45s ease-out!important}
+.reactor[data-tap-feedback=happy] .pet-body{animation:petHello907 .85s ease-in-out!important}
+.reactor[data-tap-feedback=happy] .pet-fin{animation:petWave907 .22s ease-in-out 4!important}
+.reactor[data-tap-feedback=happy] .pet-cheek{opacity:1;fill:#ffbde6}
+@keyframes petPeek907{0%,100%{transform:translateY(0) scale(1)}45%{transform:translateY(6px) scale(1.08,.91)}}
+@keyframes petHello907{0%,100%{transform:translateY(0) rotate(0)}20%{transform:translateY(-17px) rotate(-8deg)}45%{transform:translateY(-10px) rotate(8deg)}65%{transform:translateY(-15px) rotate(-5deg)}85%{transform:translateY(2px) scale(1.06,.94)}}
+@keyframes petWave907{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(8deg)}}
+@media(prefers-reduced-motion:reduce){.reactor[data-tap-feedback] .pet-body,.reactor[data-tap-feedback] .pet-fin{animation:none!important}}
 </style>
 <style>
 /* Lightweight original vector pet; only transforms/opacity animate on old SE. */
@@ -614,7 +626,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V9.0.6</div>
+      <div class="online-text" id="onlineText">BOOTING V9.0.7</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -635,7 +647,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
   </div>
 
   <div class="main">
-    <div class="reactor" id="reactor">
+    <div class="reactor" id="reactor" role="button" tabindex="0" aria-label="チャーリーを2回タップして音声入力" aria-describedby="wakeStatus901">
       <svg class="serion-pet" viewBox="0 0 320 250" role="img" aria-label="青い光の生き物チャーリー">
 <defs><radialGradient id="petBlue" cx="36%" cy="24%" r="78%"><stop stop-color="#d8ffff"/><stop offset=".35" stop-color="#5ee4ff"/><stop offset=".72" stop-color="#128bc5"/><stop offset="1" stop-color="#07567e"/></radialGradient><linearGradient id="petFin" x2="0" y2="1"><stop stop-color="#9ffbff" stop-opacity=".8"/><stop offset="1" stop-color="#0473be" stop-opacity=".25"/></linearGradient></defs>
 <ellipse cx="160" cy="220" rx="120" ry="15" fill="#07374f" stroke="#32c5f4"/><ellipse cx="160" cy="220" rx="91" ry="8" fill="none" stroke="#92f6ff"/>
@@ -651,23 +663,19 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
 
     <div class="state-title" id="stateTitle">OFFLINE</div>
     <div class="state-sub" id="stateSub">SYSTEM STARTを押してください</div>
-    <div style="width:100%;padding:4px;text-align:center;font-size:12px;color:#a9e8f4;overflow-wrap:anywhere"><div id="wakeStatus901" role="status">呼びかけ待機：起動前</div><button type="button" onclick="restartWake901()" style="min-height:36px;background:#092e3c;color:#dffbff;border:1px solid #26788a;border-radius:8px;margin-top:4px">待機再開</button></div><div class="message-box" id="messageBox"></div><div id="serionSources" class="serion-sources"></div>
+    <div id="wakeStatus901" role="status" class="tap-hint907">チャーリーを2回タップして話しかけてね</div><div class="message-box" id="messageBox"></div><div id="serionSources" class="serion-sources"></div>
   </div>
 
   <div class="footer">
     <div class="clap-status">
       <span class="clap-dot"></span>
-      <span id="clapLabel">WAKE WORD: CHARLIE</span>
+      <span id="clapLabel">DOUBLE TAP: CHARLIE</span>
     </div>
 
     <div class="agent-controls" id="captureControls850" style="display:none"><span id="recordStatus850" role="status">録音中</span><button type="button" onclick="cancelVoice850()">録音取消</button></div>
 <div class="agent-controls" id="confirmControls850" style="display:none"><button type="button" onclick="confirmAgent850('はい')">はい・確定</button><button type="button" onclick="confirmAgent850('いいえ')">いいえ・取消</button></div>
 <div class="agent-controls"><button type="button" onclick="quickQuery850('全体の注文を確認')">全卓の未提供</button><button type="button" onclick="quickQuery850('重複注文を確認')">複数注文</button><button id="repeatReply850" type="button" disabled onclick="repeatReply850()">再読上げ</button></div>
-<div class="serion-modes" role="group" aria-label="会話モード"><button data-serion-mode="auto" aria-pressed="true" onclick="serionSetMode900('auto')">おまかせ</button><button data-serion-mode="chat" aria-pressed="false" onclick="serionSetMode900('chat')">会話のみ</button><button data-serion-mode="search" aria-pressed="false" onclick="serionSetMode900('search')">WEB検索</button></div><div class="input-row">
-      <button class="icon-btn" type="button" onclick="manualListen()">🎙</button>
-      <input id="textInput" type="text" autocomplete="off" placeholder="注文・会話をどうぞ…">
-      <button class="icon-btn send-btn" type="button" onclick="manualSend()">➤</button>
-    </div>
+<div class="serion-modes" role="group" aria-label="会話モード"><button data-serion-mode="auto" aria-pressed="true" onclick="serionSetMode900('auto')">おまかせ</button><button data-serion-mode="chat" aria-pressed="false" onclick="serionSetMode900('chat')">会話のみ</button><button data-serion-mode="search" aria-pressed="false" onclick="serionSetMode900('search')">WEB検索</button></div>
   </div>
 </div>
 
@@ -675,7 +683,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
 <div class="boot-overlay" id="bootOverlay" aria-live="polite">
   <div class="boot-shell">
     <div class="boot-brand">CHARLIE</div>
-    <div class="boot-version">SERINA CORE // BOOT SEQUENCE 9.0.6</div>
+    <div class="boot-version">SERINA CORE // BOOT SEQUENCE 9.0.7</div>
     <div class="boot-reactor">
       <div class="boot-ring r1"></div><div class="boot-ring r2"></div><div class="boot-ring r3"></div>
       <div class="boot-core"></div>
@@ -700,7 +708,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     <div class="start-title">CHARLIE</div>
     <div class="start-text">
       起動するとマイクを待機状態にします。<br>
-      「チャーリー」と呼ぶと「はい」→ 音声命令を開始します。<br><br>
+      チャーリーを2回タップ → 準備できたら「はい」→ 話してください。<br><br>
       初回だけGASで発行したペアリングトークンを保存してください。
     </div>
 
@@ -803,7 +811,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     window.webkitSpeechRecognition ||
     null;
 
-  // v9.0.6 HIGH ACCURACY + iPhone SE AUDIO FIX:
+  // v9.0.7 HIGH ACCURACY + iPhone SE AUDIO FIX:
   // ウェイクワードだけWeb Speechを使用する。
   // 注文本文は必ずMediaRecorderで録音し、GAS経由のgpt-4o-transcribeで文字起こしする。
   // Web Speech / GPT Liveの注文文字列だけで登録しない。
@@ -862,7 +870,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
   var NO_SPEECH_TIMEOUT_MS = 6000;
   var END_SILENCE_MS = 850;
 
-  var APP_VERSION = "9.0.6";
+  var APP_VERSION = "9.0.7";
   var memoryStore904={},bootRun904=0,bootStarting904=false,bootTimers904=[];
   var serionSpeaking904=false;
   function storageGet904(k){try{return localStorage.getItem(k)||memoryStore904[k]||null;}catch(e){return memoryStore904[k]||null;}}
@@ -916,14 +924,14 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
       if(run!==bootRun904||!bootStarting904)return;
       bootStarting904=false;bootActiveV850_=false;
       var el=document.getElementById('bootOverlay');if(el)el.className='boot-overlay';
-      setState('standby','STANDBY',SpeechRecognitionCtor?'「チャーリー」と呼んでください':'マイクボタンから音声入力できます');
+      setState('standby','STANDBY',SpeechRecognitionCtor?'チャーリーを2回タップしてください':'キャラクターの2回タップから音声入力できます');
       startWakeWordRecognition_();
     },250);
   }
 
   window.addEventListener("load", function() {
     document.getElementById("deviceLabel").textContent = deviceLabel;
-    setupInput();
+    // Voice-only interface; no text input field.
     setupTransportListener();
 
     var savedSensitivity = Number(storageGet904(SENSITIVITY_STORAGE_KEY) || 0);
@@ -937,7 +945,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     updatePairingUi();
 
     if (getPairingToken()) {
-      document.getElementById("onlineText").textContent = "READY TO START V9.0.6";
+      document.getElementById("onlineText").textContent = "READY TO START V9.0.7";
     } else {
       document.getElementById("onlineText").textContent = "PAIRING NEEDED";
     }
@@ -1372,7 +1380,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
 
     setTimeout(function() {
       if (state === "standby") {
-        document.getElementById("clapLabel").textContent = "WAKE WORD: CHARLIE";
+        document.getElementById("clapLabel").textContent = "DOUBLE TAP: CHARLIE";
       }
     }, 650);
   }
@@ -1465,7 +1473,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
         setTimeout(function() {
           if (state === "standby") {
             document.getElementById("stateSub").textContent =
-              "「チャーリー」と呼んでください";
+              "チャーリーを2回タップしてください";
 
             startWakeWordRecognition_();
           }
@@ -2154,7 +2162,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
       // bootstrapを一度取りこぼしてAPI OFFLINE表示になっていても、
       // 実際のAPI応答が成功したらオンライン表示へ復帰。
       document.getElementById("onlineText").textContent =
-        "SYSTEM ONLINE V9.0.6";
+        "SYSTEM ONLINE V9.0.7";
 
       setState(
         "complete",
@@ -2580,9 +2588,9 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
         }
 
         document.getElementById("onlineText").textContent =
-          data.apiReady ? "AI TRANSCRIBE V9.0.6" : "API KEY NEEDED";
+          data.apiReady ? "AI TRANSCRIBE V9.0.7" : "API KEY NEEDED";
 
-        if (SpeechRecognitionCtor) document.getElementById("clapLabel").textContent = "WAKE WORD: CHARLIE";
+        if (SpeechRecognitionCtor) document.getElementById("clapLabel").textContent = "DOUBLE TAP: CHARLIE";
 
         var summary = data.orderSummary || {};
         document.getElementById("orderCount").textContent = summary.connected ? String(summary.openOrderCount || 0) : "--";
@@ -2620,8 +2628,8 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     if (newState === "standby") {
       document.getElementById("clapLabel").textContent =
         SpeechRecognitionCtor
-          ? "WAKE WORD: CHARLIE"
-          : "VOICE BUTTON READY";
+          ? "DOUBLE TAP: CHARLIE"
+          : "DOUBLE TAP: CHARLIE";
     }
   }
 
@@ -2641,16 +2649,16 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
       "STANDBY",
       subText ||
         (SpeechRecognitionCtor
-          ? "「チャーリー」と呼んでください"
-          : "マイクボタンから音声入力できます")
+          ? "チャーリーを2回タップしてください"
+          : "キャラクターの2回タップから音声入力できます")
     );
 
     setTimeout(function() {
       if (state === "standby") {
         document.getElementById("stateSub").textContent =
           SpeechRecognitionCtor
-            ? "「チャーリー」と呼んでください"
-            : "マイクボタンから音声入力できます";
+            ? "チャーリーを2回タップしてください"
+            : "キャラクターの2回タップから音声入力できます";
 
         if (SpeechRecognitionCtor) {
           startWakeWordRecognition_();
@@ -2871,7 +2879,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     v814Confirm = null;
     busy = false;
     showMessage("確認が取れなかったため、登録していません。");
-    setState("standby", "STANDBY", "「チャーリー」と呼んでください");
+    setState("standby", "STANDBY", "チャーリーを2回タップしてください");
     speak("確認が取れなかったため、登録していません。", function() {
       setTimeout(startWakeWordRecognition_, 250);
     });
@@ -3091,7 +3099,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     );
   }
 
-  // v9.0.6: すべての注文音声をgpt-4o-transcribeへ送る高精度経路。
+  // v9.0.7: すべての注文音声をgpt-4o-transcribeへ送る高精度経路。
   function sendAudioBlob(blob, mimeType) {
     busy = true;
     setState("processing", "AI TRANSCRIBING", "高精度AIで文字起こししています...");
@@ -3140,7 +3148,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     try{reader.readAsDataURL(blob);}catch(e){readFailure852('AUDIO_READ_THROW');}
   }
 
-  // v9.0.6: iPhone SafariでJSONPのload/errorが返らない場合も、
+  // v9.0.7: iPhone SafariでJSONPのload/errorが返らない場合も、
   // 1回ごとの監視タイマーと全体タイマーで必ず次へ進む。
   function pollRequestResult_(requestId, callback, timeoutMs) {
     var startedAt = Date.now();
@@ -3237,7 +3245,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     var transcript = String(result.normalizedTranscript || result.transcript || "").trim();
     showMessage(transcript ? ("認識：" + transcript + "\n\n" + message) : message);
 
-    document.getElementById("onlineText").textContent = "AI TRANSCRIBE V9.0.6";
+    document.getElementById("onlineText").textContent = "AI TRANSCRIBE V9.0.7";
     if (ok) setState("complete", "COMPLETE", "ORDER TURBO");
     else setState("error", "ERROR", result.resultUnknown ? "RESULT UNKNOWN" : "注文内容を確認してください");
 
@@ -3319,7 +3327,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
 
 
   // =====================================================
-  // SERINA JARVIS v9.0.6 HIGH ACCURACY AI ORDER
+  // SERINA JARVIS v9.0.7 HIGH ACCURACY AI ORDER
   // - Wake word: local Web Speech
   // - Command body: MediaRecorder -> GAS -> gpt-4o-transcribe
   // - Menu / VoiceAliases / Tables: AI transcription context + deterministic validation
@@ -3365,7 +3373,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     var tc = liveIndexV822_ && liveIndexV822_.tables ? liveIndexV822_.tables.length : 0;
     document.getElementById("clapLabel").textContent = "PRELOAD " + pc + " MENU / " + tc + " TABLES";
 
-    // v9.0.6: GPT Liveは起動しない。注文本文は録音後に高精度AI文字起こしへ送る。
+    // v9.0.7: GPT Liveは起動しない。注文本文は録音後に高精度AI文字起こしへ送る。
   }
 
   function buildLiveContextV82_() {
@@ -3833,7 +3841,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     if (liveReadyV82_) return;
     liveReadyV82_ = true;
     liveConnectingV82_ = false;
-    document.getElementById("onlineText").textContent = "LIVE READY V9.0.6";
+    document.getElementById("onlineText").textContent = "LIVE READY V9.0.7";
     document.getElementById("clapLabel").textContent = "WAKE WORD + GPT LIVE";
     sendLiveEventV82_({
       type: "session.instructions.append",
@@ -3890,7 +3898,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     if (!sourceTrack) return;
 
     liveConnectingV82_ = true;
-    document.getElementById("onlineText").textContent = "LIVE WARMING V9.0.6";
+    document.getElementById("onlineText").textContent = "LIVE WARMING V9.0.7";
 
     try {
       var pc = new RTCPeerConnection();
@@ -3933,7 +3941,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
                 if (livePcV82_ !== pc) return;
                 if (!result || result.success !== true || !result.answerSdp) {
                   closeLiveV82_(true);
-                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V9.0.6";
+                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V9.0.7";
                   return;
                 }
                 pc.setRemoteDescription({type:"answer", sdp:String(result.answerSdp)}).catch(function(){
@@ -4083,7 +4091,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     return true;
   }
 
-  // v9.0.6: Wake word stays on Web Speech, but every order body is recorded
+  // v9.0.7: Wake word stays on Web Speech, but every order body is recorded
   // and sent to gpt-4o-transcribe. GPT Live/Web Speech text never registers an order.
   var beginFastVoiceInputBaseV82_ = beginFastVoiceInput_;
   beginFastVoiceInput_ = function() {
@@ -4131,7 +4139,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
   window.addEventListener('orientationchange',viewport850);
   if(window.visualViewport) window.visualViewport.addEventListener('resize',viewport850);
   viewport850();
-  // v9.0.6: PCM-first on iOS, VAD from the recorded samples, bounded preparation.
+  // v9.0.7: PCM-first on iOS, VAD from the recorded samples, bounded preparation.
   var agentMonitorSource852=null;
   function isIos852(){return /iPad|iPhone|iPod/.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);}
   function captureUi850(on){document.getElementById('captureControls850').style.display=on?'flex':'none';}
@@ -4214,7 +4222,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
   }
   function finishCapture850(c,blob){
     if(c.done)return;
-    if(!blob||blob.size<256){failCapture852(c,'AUDIO_EMPTY','マイクから録音データを取得できませんでした。Safariのマイクボタンから再度お試しください。');return;}
+    if(!blob||blob.size<256){failCapture852(c,'AUDIO_EMPTY','マイクから録音データを取得できませんでした。Safariのキャラクターの2回タップから再度お試しください。');return;}
     c.done=true;cleanCapture850(c);commandModeActive=false;
     if(c.cancelled)return;
     sendAudioBlob(blob,blob.type);
@@ -4250,12 +4258,12 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
       var now=Date.now(),elapsed=now-c.started,dt=Math.min(150,now-c.lastTick);c.lastTick=now;
       if(c.node){
         if((!c.frames&&elapsed>2500)||(c.frames&&now-c.lastFrame>2500)){
-          failCapture852(c,'AUDIO_NO_FRAMES','音声入力が停止しています。Safariを前面にしてマイクボタンを押してください。');return;
+          failCapture852(c,'AUDIO_NO_FRAMES','音声入力が停止しています。Safariを前面にしてキャラクターを2回タップしてください。');return;
         }
       }else {try{recordLevel852(c,readAudioMetrics().rms||0,dt,now);}catch(ignore){}}
       if(c.needsAck&&!c.ackDone){
         document.getElementById('recordStatus850').textContent=c.ackSpeaking?'準備完了・応答中':'音声入力を確認しています';
-        if(!c.ackStarted&&elapsed>2500)failCapture852(c,'AUDIO_NOT_READY','録音開始を確認できませんでした。マイクボタンから再度お試しください。');
+        if(!c.ackStarted&&elapsed>2500)failCapture852(c,'AUDIO_NOT_READY','録音開始を確認できませんでした。キャラクターの2回タップから再度お試しください。');
         return;
       }
       document.getElementById('recordStatus850').textContent=(elapsed/1000).toFixed(1)+'秒・'+(c.heard?'音声検出／話し終わると自動送信':'音声を待っています');
@@ -4305,9 +4313,9 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     stopWakeWordRecognition_();if(window.speechSynthesis)window.speechSynthesis.cancel();
     setState('listening','PREPARING','マイクを準備しています');captureUi850(true);
     document.getElementById('recordStatus850').textContent='マイクを準備しています';
-    c.prepareWatch=setTimeout(function(){failCapture852(c,'AUDIO_PREPARE_TIMEOUT','マイクを再開できませんでした。Safariでマイクボタンを押してください。');},6000);
+    c.prepareWatch=setTimeout(function(){failCapture852(c,'AUDIO_PREPARE_TIMEOUT','マイクを再開できませんでした。Safariでキャラクターを2回タップしてください。');},6000);
     // Reacquire the iOS stream after requesting release of SpeechRecognition.
-    Promise.resolve().then(function(){return refreshMic852(c);}).then(function(){if(!c.done)return resumeAudio852();}).then(function(){if(!c.done)beginCapture852(c);}).catch(function(e){failCapture852(c,'AUDIO_PREPARE_FAILED','マイクを開始できませんでした。Safariのマイク許可を確認し、マイクボタンを押してください。');});
+    Promise.resolve().then(function(){return refreshMic852(c);}).then(function(){if(!c.done)return resumeAudio852();}).then(function(){if(!c.done)beginCapture852(c);}).catch(function(e){failCapture852(c,'AUDIO_PREPARE_FAILED','マイクを開始できませんでした。Safariのマイク許可を確認し、キャラクターを2回タップしてください。');});
   }
   window.finishVoice850=function(){
     var c=agentCapture850;if(!c||c.stopping||c.done)return;
@@ -4433,7 +4441,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
   };
   document.addEventListener('visibilitychange',function(){
     if(document.hidden){var c=agentCapture850;if(c){c.cancelled=true;window.finishVoice850();}stopWakeWordRecognition_();stopConfirmV814_();if(window.speechSynthesis)window.speechSynthesis.cancel();agentSpeechSerial850++;}
-    else if(!bootActiveV850_&&!bootStarting904&&!serionSpeaking904&&!agentCapture850&&!busy&&!v814Confirm&&state!=='offline')returnToStandby('画面復帰後はマイクから再開できます');
+    else if(!bootActiveV850_&&!bootStarting904&&!serionSpeaking904&&!agentCapture850&&!busy&&!v814Confirm&&state!=='offline')returnToStandby('チャーリーを2回タップして再開できます');
   });
 
   // CHARLIE: bounded in-memory conversation; no history is used to fill order targets.
@@ -4444,7 +4452,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     if(busy||agentCapture850)return;
     serionMode900=mode;
     document.querySelectorAll('[data-serion-mode]').forEach(function(b){b.setAttribute('aria-pressed',b.getAttribute('data-serion-mode')===mode?'true':'false');});
-    document.getElementById('textInput').placeholder=mode==='search'?'調べたいこと…':mode==='chat'?'チャーリーと話そう…':'注文・会話をどうぞ…';
+    document.getElementById('wakeStatus901').textContent='チャーリーを2回タップして'+(mode==='search'?'調べたいことを話してね':mode==='chat'?'話しかけてね':'注文・会話を話してね');
   };
   window.serionClear900=function(){serionHistory900=[];document.getElementById('serionSources').textContent='';showMessage('会話履歴をリセットしました。注文は変更していません。');};
   var serionApiBase900=apiRequest;
@@ -4544,95 +4552,38 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
       if(micReady&&!bootActiveV850_)resumeStandby904=true;
       serionSpeaking904=false;releaseMonitor904();
     }else if(resumeStandby904&&!busy&&!agentCapture850&&!v814Confirm&&!bootActiveV850_){
-      resumeStandby904=false;returnToStandby('「チャーリー」と呼んでください');
+      resumeStandby904=false;returnToStandby('チャーリーを2回タップしてください');
     }
   });
-  // v9.0.6: local wake recognition only; no extra cloud audio upload.
-  var wake901={starting:false,blocked:false,started:0,last:0,speech:0,failures:0,captureErrors:0,heard:''};
-  function wakeStatus901(label){
-    var e=document.getElementById('wakeStatus901');
-    if(e)e.textContent=label+(wake901.heard?' ／ 聞き取り：'+wake901.heard:'');
-  }
-  function normalizeWakeText_(text){
-    var s=String(text||'').toLowerCase();
-    if(s.normalize)s=s.normalize('NFKC');
-    return s.replace(/[ァ-ヶ]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-96);}).replace(/[\s　、。,.!?！？「」『』〜～・]/g,'');
-  }
-  function containsWakeWord_(text){
-    var s=normalizeWakeText_(text);
-    // Restore JARVIS-era substring matching while keeping the CHARLIE name.
-    return s.indexOf('ちゃーりー')>=0||s.indexOf('ちゃーり')>=0||s.indexOf('charlie')>=0;
-  }
-  function wakeAllowed901(){return !bootActiveV850_&&!bootStarting904&&!serionSpeaking904&&!serionSource900&&!(window.speechSynthesis&&window.speechSynthesis.speaking)&&!v814Confirm&&!!SpeechRecognitionCtor&&micReady&&state==='standby'&&!busy&&!commandModeActive&&!agentCapture850&&!document.hidden&&!wake901.blocked;}
+  // v9.0.7: touch activation only; no background wake-name recognition.
+  var wake901={blocked:false,failures:0,captureErrors:0};
   function stopWakeWordRecognition_(){
     clearTimeout(wakeRestartTimer);wakeRestartTimer=null;
-    var old=wakeRecognition;wakeRecognition=null;wakeRecognitionRunning=false;wake901.starting=false;wake901.speech=0;
-    if(old){old.onstart=old.onresult=old.onend=old.onerror=old.onspeechstart=old.onspeechend=null;try{old.abort();}catch(e){try{old.stop();}catch(ignore){}}}
-    wakeStatus901('呼びかけ待機：停止中');
+    var old=wakeRecognition;wakeRecognition=null;wakeRecognitionRunning=false;
+    if(old){old.onstart=old.onresult=old.onend=old.onerror=null;try{old.abort();}catch(e){}}
   }
-  function wakeRetry901(delay){
-    stopWakeWordRecognition_();
-    if(wakeAllowed901()){wakeStatus901('呼びかけ待機：再接続中');wakeRestartTimer=setTimeout(function(){wakeRestartTimer=null;startWakeWordRecognition_();},delay);}
+  function startWakeWordRecognition_(){} // Legacy callers are intentionally inert.
+  window.manualSend=function(){};
+  var tapAt907=0,tapFeedbackTimer907=null;
+  var pet907=document.getElementById('reactor');
+  function petFeedback907(kind){
+    clearTimeout(tapFeedbackTimer907);
+    pet907.setAttribute('data-tap-feedback',kind);
+    tapFeedbackTimer907=setTimeout(function(){pet907.removeAttribute('data-tap-feedback');},kind==='happy'?900:550);
   }
-  function startWakeWordRecognition_(){
-    if(!wakeAllowed901()||wakeRecognitionRunning||wake901.starting||wakeRestartTimer)return;
-    releaseMonitor904();
-    var r;
-    try{
-      r=new SpeechRecognitionCtor();wakeRecognition=r;wake901.starting=true;wake901.started=Date.now();wake901.last=Date.now();
-      r.lang='ja-JP';r.continuous=true;r.interimResults=true;r.maxAlternatives=5;
-      wakeStatus901('呼びかけ待機：マイク接続中');
-      var seen={};
-      r.onstart=function(){if(wakeRecognition!==r)return;if(!wakeAllowed901()){stopWakeWordRecognition_();return;}wake901.starting=false;wakeRecognitionRunning=true;wake901.started=Date.now();wakeStatus901('呼びかけ待機中');};
-      r.onspeechstart=function(){if(wakeRecognition===r)wake901.speech=Date.now();};
-      r.onspeechend=function(){if(wakeRecognition===r)wake901.speech=0;};
-      r.onresult=function(event){
-        if(wakeRecognition!==r||!wakeAllowed901())return;
-        var now=Date.now(),index=Number(event.resultIndex)||0,found=false,display=[],tails=[''];
-        wake901.last=now;wake901.failures=0;wake901.captureErrors=0;
-        for(var i=Math.max(0,index-1);i<event.results.length;i++){
-          var item=event.results[i];if(!item)continue;
-          if(i>=index)seen[i]=now;
-          if(!seen[i]||now-seen[i]>2000)continue;
-          var next=[];
-          for(var j=0;j<Math.min(item.length,5);j++){
-            var t=String(item[j].transcript||'');if(i>=index&&display.length<5)display.push(t);
-            if(i>=index&&containsWakeWord_(t))found=true;
-            for(var k=0;k<Math.min(tails.length,5);k++){var combined=(tails[k]+t).slice(-70);next.push(combined);if(i>=index&&containsWakeWord_(combined))found=true;}
-          }
-          tails=next.slice(0,5);
-        }
-        wake901.heard=display.join(' / ').slice(0,100);wakeStatus901(found?'呼びかけ検出':'呼びかけ待機中');
-        if(found){stopWakeWordRecognition_();wakeStatus901('チャーリーを検出・録音準備中');activateByWakeWord_();}
-      };
-      r.onerror=function(event){
-        if(wakeRecognition!==r)return;
-        var name=String(event.error||'unknown');
-        if(/^(not-allowed|service-not-allowed)$/.test(name)){
-          wake901.blocked=true;stopWakeWordRecognition_();wakeStatus901('マイク許可を確認して「待機再開」を押してください ('+name+')');return;
-        }
-        if(name==='audio-capture'&&++wake901.captureErrors>3){wake901.blocked=true;stopWakeWordRecognition_();wakeStatus901('マイクを再開できません。「待機再開」を押してください');return;}
-        wake901.failures++;wakeRetry901(name==='no-speech'?350:Math.min(8000,500*Math.pow(2,Math.min(wake901.failures,4))));
-      };
-      r.onend=function(){if(wakeRecognition!==r)return;
-        var short=Date.now()-wake901.started<1500;if(short)wake901.failures++;else wake901.failures=0;
-        wakeRetry901(short?Math.min(8000,500*Math.pow(2,Math.min(wake901.failures,4))):300);
-      };
-      r.start();
-    }catch(e){wake901.failures++;wakeRetry901(Math.min(8000,500*Math.pow(2,Math.min(wake901.failures,4))));}
-  }
-  window.restartWake901=function(){
-    if(busy||agentCapture850||state!=='standby')return;
-    wake901.blocked=false;wake901.failures=0;wake901.captureErrors=0;stopWakeWordRecognition_();startWakeWordRecognition_();
-  };
-  setInterval(function(){
-    if(!wakeAllowed901()||wakeRestartTimer)return;
+  function petTap907(){
+    if(document.hidden||bootActiveV850_||bootStarting904||!micReady||busy||agentCapture850||v814Confirm){tapAt907=0;return;}
     var now=Date.now();
-    if(!wakeRecognition){startWakeWordRecognition_();return;}
-    if(wake901.starting&&now-wake901.started>6000){wake901.failures++;wakeRetry901(1000);return;}
-    // A started continuous recognizer stays open during silence; onend/onerror recover it.
-  },2000);
-  document.addEventListener('visibilitychange',function(){if(document.hidden)stopWakeWordRecognition_();else if(wakeAllowed901())startWakeWordRecognition_();});
+    if(!tapAt907||now-tapAt907>550){tapAt907=now;petFeedback907('peek');return;}
+    tapAt907=0;
+    agentSpeechSerial850++;serionSpeaking904=false;serionStop900();
+    if(window.speechSynthesis)window.speechSynthesis.cancel();
+    stopWakeWordRecognition_();startCapture850(true);
+    if(agentCapture850)petFeedback907('happy');
+  }
+  pet907.addEventListener('click',petTap907);
+  pet907.addEventListener('keydown',function(e){if((e.key==='Enter'||e.key===' ')&&!e.repeat){e.preventDefault();petTap907();}});
+  document.addEventListener('visibilitychange',function(){tapAt907=0;clearTimeout(tapFeedbackTimer907);pet907.removeAttribute('data-tap-feedback');});
 
 })();
 </script>
