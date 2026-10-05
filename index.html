@@ -6,13 +6,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#02070b">
-  <title>CHARLIE AI COMPANION 9.0.7 | SERINA</title>
+  <title>CHARLIE AI COMPANION 9.0.9 | SERINA</title>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <script>
   (function(){
-    var version = "9.0.7";
+    var version = "9.0.9";
     var maxUrlAgeMs = 5 * 60 * 1000;
     var now = Date.now();
     var url;
@@ -418,7 +418,7 @@
     }
 
 
-    /* v9.0.7 futuristic initialization overlay */
+    /* v9.0.9 futuristic initialization overlay */
     .boot-overlay {
       position: fixed; inset: 0; z-index: 80; display: none;
       align-items: center; justify-content: center; padding: 24px;
@@ -626,7 +626,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
 
     <div class="header-right">
       <div class="online-dot"></div>
-      <div class="online-text" id="onlineText">BOOTING V9.0.7</div>
+      <div class="online-text" id="onlineText">BOOTING V9.0.9</div>
       <button class="settings-btn" type="button" onclick="toggleSettings()">⚙</button>
     </div>
   </div>
@@ -683,7 +683,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
 <div class="boot-overlay" id="bootOverlay" aria-live="polite">
   <div class="boot-shell">
     <div class="boot-brand">CHARLIE</div>
-    <div class="boot-version">SERINA CORE // BOOT SEQUENCE 9.0.7</div>
+    <div class="boot-version">SERINA CORE // BOOT SEQUENCE 9.0.9</div>
     <div class="boot-reactor">
       <div class="boot-ring r1"></div><div class="boot-ring r2"></div><div class="boot-ring r3"></div>
       <div class="boot-core"></div>
@@ -708,7 +708,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     <div class="start-title">CHARLIE</div>
     <div class="start-text">
       起動するとマイクを待機状態にします。<br>
-      チャーリーを2回タップ → 準備できたら「はい」→ 話してください。<br><br>
+      チャーリーを2回タップ → そのまま話してください。<br><br>
       初回だけGASで発行したペアリングトークンを保存してください。
     </div>
 
@@ -811,7 +811,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     window.webkitSpeechRecognition ||
     null;
 
-  // v9.0.7 HIGH ACCURACY + iPhone SE AUDIO FIX:
+  // v9.0.9 HIGH ACCURACY + iPhone SE AUDIO FIX:
   // ウェイクワードだけWeb Speechを使用する。
   // 注文本文は必ずMediaRecorderで録音し、GAS経由のgpt-4o-transcribeで文字起こしする。
   // Web Speech / GPT Liveの注文文字列だけで登録しない。
@@ -870,17 +870,17 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
   var NO_SPEECH_TIMEOUT_MS = 6000;
   var END_SILENCE_MS = 850;
 
-  var APP_VERSION = "9.0.7";
+  var APP_VERSION = "9.0.9";
   var memoryStore904={},bootRun904=0,bootStarting904=false,bootTimers904=[];
   var serionSpeaking904=false;
   function storageGet904(k){try{return localStorage.getItem(k)||memoryStore904[k]||null;}catch(e){return memoryStore904[k]||null;}}
   function storageSet904(k,v){memoryStore904[k]=String(v);try{localStorage.setItem(k,v);}catch(e){}}
   function stopBootTimers904(){bootTimers904.forEach(clearTimeout);bootTimers904=[];}
   function bootTimer904(f,ms){var id=setTimeout(f,ms);bootTimers904.push(id);return id;}
-  function releaseMonitor904(){
+  function releaseMonitor904(stopTracks){
     if(monitorInterval){clearInterval(monitorInterval);monitorInterval=null;}
     if(agentMonitorSource852){try{agentMonitorSource852.disconnect();}catch(e){}agentMonitorSource852=null;}
-    if(micStream&&micStream.getTracks)micStream.getTracks().forEach(function(t){try{t.stop();}catch(e){}});
+    if(stopTracks!==false&&micStream&&micStream.getTracks)micStream.getTracks().forEach(function(t){try{t.stop();}catch(e){}});
   }
   function bootFail904(run,title,detail){
     if(run!==bootRun904||!bootStarting904)return;
@@ -918,7 +918,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
 
   function bootMaybeReadyV850_() {
     if(!bootStarting904||!bootMicReadyV850_||!bootCalibratedV850_||!bootDataReadyV850_)return;
-    var run=bootRun904;stopBootTimers904();releaseMonitor904();
+    var run=bootRun904;stopBootTimers904();releaseMonitor904(false);
     bootPhaseV850_(100,'CHARLIE ONLINE','Menu / Tablesの取得と音声準備が完了しました');
     bootTimer904(function(){
       if(run!==bootRun904||!bootStarting904)return;
@@ -945,7 +945,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     updatePairingUi();
 
     if (getPairingToken()) {
-      document.getElementById("onlineText").textContent = "READY TO START V9.0.7";
+      document.getElementById("onlineText").textContent = "READY TO START V9.0.9";
     } else {
       document.getElementById("onlineText").textContent = "PAIRING NEEDED";
     }
@@ -2162,7 +2162,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
       // bootstrapを一度取りこぼしてAPI OFFLINE表示になっていても、
       // 実際のAPI応答が成功したらオンライン表示へ復帰。
       document.getElementById("onlineText").textContent =
-        "SYSTEM ONLINE V9.0.7";
+        "SYSTEM ONLINE V9.0.9";
 
       setState(
         "complete",
@@ -2554,7 +2554,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
         if(options.bootRun&&(options.bootRun!==bootRun904||!bootStarting904))return;
         var preload904=data&&data.preloadMenu;
         if(data&&data.success===true&&(!agentCoreReady850||!data.apiReady||!preload904||!Array.isArray(preload904.products)||!preload904.products.some(function(p){return p&&String(p.name||'').trim();})||!Array.isArray(preload904.tables)||!preload904.tables.length)){
-          data={success:false,message:!agentCoreReady850?'GAS v9.0.0のデプロイを確認してください':!data.apiReady?'GASから店舗の初期データを取得できませんでした':'Menu / Tablesが空か、初期データの形式が不正です'};
+          data={success:false,message:!agentCoreReady850?'GAS v9.0.9のデプロイを確認してください':!data.apiReady?'GASから店舗の初期データを取得できませんでした':'Menu / Tablesが空か、初期データの形式が不正です'};
         }
         if (!data || data.success !== true) {
           document.getElementById("onlineText").textContent = "API OFFLINE";
@@ -2588,7 +2588,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
         }
 
         document.getElementById("onlineText").textContent =
-          data.apiReady ? "AI TRANSCRIBE V9.0.7" : "API KEY NEEDED";
+          data.apiReady ? "AI TRANSCRIBE V9.0.9" : "API KEY NEEDED";
 
         if (SpeechRecognitionCtor) document.getElementById("clapLabel").textContent = "DOUBLE TAP: CHARLIE";
 
@@ -3099,7 +3099,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     );
   }
 
-  // v9.0.7: すべての注文音声をgpt-4o-transcribeへ送る高精度経路。
+  // v9.0.9: すべての注文音声をgpt-4o-transcribeへ送る高精度経路。
   function sendAudioBlob(blob, mimeType) {
     busy = true;
     setState("processing", "AI TRANSCRIBING", "高精度AIで文字起こししています...");
@@ -3148,7 +3148,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     try{reader.readAsDataURL(blob);}catch(e){readFailure852('AUDIO_READ_THROW');}
   }
 
-  // v9.0.7: iPhone SafariでJSONPのload/errorが返らない場合も、
+  // v9.0.9: iPhone SafariでJSONPのload/errorが返らない場合も、
   // 1回ごとの監視タイマーと全体タイマーで必ず次へ進む。
   function pollRequestResult_(requestId, callback, timeoutMs) {
     var startedAt = Date.now();
@@ -3245,7 +3245,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     var transcript = String(result.normalizedTranscript || result.transcript || "").trim();
     showMessage(transcript ? ("認識：" + transcript + "\n\n" + message) : message);
 
-    document.getElementById("onlineText").textContent = "AI TRANSCRIBE V9.0.7";
+    document.getElementById("onlineText").textContent = "AI TRANSCRIBE V9.0.9";
     if (ok) setState("complete", "COMPLETE", "ORDER TURBO");
     else setState("error", "ERROR", result.resultUnknown ? "RESULT UNKNOWN" : "注文内容を確認してください");
 
@@ -3327,7 +3327,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
 
 
   // =====================================================
-  // SERINA JARVIS v9.0.7 HIGH ACCURACY AI ORDER
+  // SERINA JARVIS v9.0.9 HIGH ACCURACY AI ORDER
   // - Wake word: local Web Speech
   // - Command body: MediaRecorder -> GAS -> gpt-4o-transcribe
   // - Menu / VoiceAliases / Tables: AI transcription context + deterministic validation
@@ -3373,7 +3373,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     var tc = liveIndexV822_ && liveIndexV822_.tables ? liveIndexV822_.tables.length : 0;
     document.getElementById("clapLabel").textContent = "PRELOAD " + pc + " MENU / " + tc + " TABLES";
 
-    // v9.0.7: GPT Liveは起動しない。注文本文は録音後に高精度AI文字起こしへ送る。
+    // v9.0.9: GPT Liveは起動しない。注文本文は録音後に高精度AI文字起こしへ送る。
   }
 
   function buildLiveContextV82_() {
@@ -3841,7 +3841,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     if (liveReadyV82_) return;
     liveReadyV82_ = true;
     liveConnectingV82_ = false;
-    document.getElementById("onlineText").textContent = "LIVE READY V9.0.7";
+    document.getElementById("onlineText").textContent = "LIVE READY V9.0.9";
     document.getElementById("clapLabel").textContent = "WAKE WORD + GPT LIVE";
     sendLiveEventV82_({
       type: "session.instructions.append",
@@ -3898,7 +3898,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     if (!sourceTrack) return;
 
     liveConnectingV82_ = true;
-    document.getElementById("onlineText").textContent = "LIVE WARMING V9.0.7";
+    document.getElementById("onlineText").textContent = "LIVE WARMING V9.0.9";
 
     try {
       var pc = new RTCPeerConnection();
@@ -3941,7 +3941,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
                 if (livePcV82_ !== pc) return;
                 if (!result || result.success !== true || !result.answerSdp) {
                   closeLiveV82_(true);
-                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V9.0.7";
+                  document.getElementById("onlineText").textContent = "LIVE FALLBACK V9.0.9";
                   return;
                 }
                 pc.setRemoteDescription({type:"answer", sdp:String(result.answerSdp)}).catch(function(){
@@ -4091,7 +4091,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     return true;
   }
 
-  // v9.0.7: Wake word stays on Web Speech, but every order body is recorded
+  // v9.0.9: Wake word stays on Web Speech, but every order body is recorded
   // and sent to gpt-4o-transcribe. GPT Live/Web Speech text never registers an order.
   var beginFastVoiceInputBaseV82_ = beginFastVoiceInput_;
   beginFastVoiceInput_ = function() {
@@ -4139,7 +4139,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
   window.addEventListener('orientationchange',viewport850);
   if(window.visualViewport) window.visualViewport.addEventListener('resize',viewport850);
   viewport850();
-  // v9.0.7: PCM-first on iOS, VAD from the recorded samples, bounded preparation.
+  // v9.0.9: PCM-first on iOS, VAD from the recorded samples, bounded preparation.
   var agentMonitorSource852=null;
   function isIos852(){return /iPad|iPhone|iPod/.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);}
   function captureUi850(on){document.getElementById('captureControls850').style.display=on?'flex':'none';}
@@ -4208,7 +4208,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     if(c.done)return Promise.resolve();
     var tracks=micStream&&micStream.getAudioTracks?micStream.getAudioTracks():[];
     var stale=!tracks.length||tracks.some(function(t){return t.readyState==='ended'||t.muted;});
-    if(!isIos852()&&!stale)return Promise.resolve();
+    if(!stale)return Promise.resolve();
     return navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false}).then(function(stream){
       if(c.done){stream.getTracks().forEach(function(t){t.stop();});return;}
       // Reconnect the standby meters to the fresh stream as well as the recorder.
@@ -4311,11 +4311,16 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     if(audioContext&&audioContext.state!=='running')try{var p=audioContext.resume();if(p&&p.catch)p.catch(function(){});}catch(ignore){}
     if(wakeRecognition)try{wakeRecognition.onresult=null;wakeRecognition.abort();}catch(ignore){}
     stopWakeWordRecognition_();if(window.speechSynthesis)window.speechSynthesis.cancel();
-    setState('listening','PREPARING','マイクを準備しています');captureUi850(true);
-    document.getElementById('recordStatus850').textContent='マイクを準備しています';
-    c.prepareWatch=setTimeout(function(){failCapture852(c,'AUDIO_PREPARE_TIMEOUT','マイクを再開できませんでした。Safariでキャラクターを2回タップしてください。');},6000);
-    // Reacquire the iOS stream after requesting release of SpeechRecognition.
-    Promise.resolve().then(function(){return refreshMic852(c);}).then(function(){if(!c.done)return resumeAudio852();}).then(function(){if(!c.done)beginCapture852(c);}).catch(function(e){failCapture852(c,'AUDIO_PREPARE_FAILED','マイクを開始できませんでした。Safariのマイク許可を確認し、キャラクターを2回タップしてください。');});
+    setState('listening','LISTENING','話し終わると自動送信します');captureUi850(true);
+    document.getElementById('recordStatus850').textContent='録音中';
+    var tracks=micStream.getAudioTracks?micStream.getAudioTracks():[];
+    var usable=tracks.length&&tracks.every(function(t){return t.readyState==='live'&&!t.muted;});
+    if(usable&&audioContext&&audioContext.state==='running'){
+      try{beginCapture852(c);}catch(e){failCapture852(c,'AUDIO_START_FAILED','録音を開始できませんでした。もう一度タップしてください。');}
+      return;
+    }
+    c.prepareWatch=setTimeout(function(){failCapture852(c,'AUDIO_PREPARE_TIMEOUT','マイクを再開できませんでした。Safariのマイク許可を確認してください。');},6000);
+    refreshMic852(c).then(function(){if(!c.done)return resumeAudio852();}).then(function(){if(!c.done)beginCapture852(c);}).catch(function(e){failCapture852(c,'AUDIO_PREPARE_FAILED','マイクを開始できませんでした。Safariのマイク許可を確認してください。');});
   }
   window.finishVoice850=function(){
     var c=agentCapture850;if(!c||c.stopping||c.done)return;
@@ -4351,8 +4356,8 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
   var agentCoreReady850=false;
   var originalApiRequest850=apiRequest;
   apiRequest=function(action,data,callback,timeout){
-    if(action==='bootstrap'){var requestRun904=bootRun904;return originalApiRequest850(action,data,function(r){if(requestRun904!==bootRun904)return;agentCoreReady850=!!(r&&String(r.version||r.coreVersion).match(/V9_0_0(?:_|$)/));callback(r);if(!agentCoreReady850){document.getElementById('onlineText').textContent='GAS UPDATE REQUIRED';showMessage('GAS側をCHARLIE v9.0.0へ更新・再デプロイしてください。');}},timeout);}
-    if(!agentCoreReady850&&/^(audio_order|order_fast|order_confirm)$/.test(action)){callback({success:false,message:'GAS側のCHARLIE v9.0.0を確認できません。GASを更新してからSYSTEM STARTで起動し直してください。',noMutation:true});return;}
+    if(action==='bootstrap'){var requestRun904=bootRun904;return originalApiRequest850(action,data,function(r){if(requestRun904!==bootRun904)return;agentCoreReady850=!!(r&&String(r.version||r.coreVersion).match(/V9_0_9(?:_|$)/));callback(r);if(!agentCoreReady850){document.getElementById('onlineText').textContent='GAS UPDATE REQUIRED';showMessage('GAS側をCHARLIE v9.0.9へ更新・再デプロイしてください。');}},timeout);}
+    if(!agentCoreReady850&&/^(audio_order|order_fast|order_confirm)$/.test(action)){callback({success:false,message:'GAS側のCHARLIE v9.0.9を確認できません。GASを更新してからSYSTEM STARTで起動し直してください。',noMutation:true});return;}
     if(action==='audio_order'&&agentConfirmOp850){data.confirmationOperationId=agentConfirmOp850;agentConfirmOp850='';}
     return originalApiRequest850(action,data,callback,timeout);
   };
@@ -4407,16 +4412,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
       if(preferred)u.voice=preferred;
     }catch(ignore){}
   }
-  function releaseMicForReply855(){
-    if(!isIos852()||agentCapture850)return false;
-    stopWakeWordRecognition_();stopConfirmV814_();
-    var released=false;
-    if(micStream&&micStream.getAudioTracks)micStream.getAudioTracks().forEach(function(t){
-      if(t.readyState!=='ended'){try{t.stop();released=true;}catch(ignore){}}
-    });
-    // Keep the stream reference. The existing capture preparation replaces ended tracks.
-    return released;
-  }
+  function releaseMicForReply855(){ return false; }
   window.testVoice855=function(){
     if(busy||agentCapture850||v814Confirm)return;
     setState('processing','VOICE TEST','音声が流れている間に本体の音量＋で調整してください');
@@ -4555,7 +4551,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
       resumeStandby904=false;returnToStandby('チャーリーを2回タップしてください');
     }
   });
-  // v9.0.7: touch activation only; no background wake-name recognition.
+  // v9.0.9: touch activation only; no background wake-name recognition.
   var wake901={blocked:false,failures:0,captureErrors:0};
   function stopWakeWordRecognition_(){
     clearTimeout(wakeRestartTimer);wakeRestartTimer=null;
@@ -4578,7 +4574,7 @@ html[data-serion-hidden=true] .serion-pet *{animation-play-state:paused!importan
     tapAt907=0;
     agentSpeechSerial850++;serionSpeaking904=false;serionStop900();
     if(window.speechSynthesis)window.speechSynthesis.cancel();
-    stopWakeWordRecognition_();startCapture850(true);
+    stopWakeWordRecognition_();startCapture850(false);
     if(agentCapture850)petFeedback907('happy');
   }
   pet907.addEventListener('click',petTap907);
